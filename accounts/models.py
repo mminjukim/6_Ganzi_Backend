@@ -45,6 +45,7 @@ class User(AbstractUser):
     nickname = models.CharField(max_length=50, default="")
     profile_img=models.ImageField(upload_to='%Y%m%d/', blank=True, default='')
     profile_aggrement = models.BooleanField(default=False) # 선택약관 동의여부
+    password = models.CharField(max_length=128)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -59,5 +60,6 @@ class Badge(models.Model):
     badge_name = models.CharField(max_length=20, default="")
 
 class AcquiredBadge(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     badge = models.ForeignKey(Badge, on_delete=models.CASCADE)
     family = models.ForeignKey(FamilyInfo, on_delete=models.CASCADE)
