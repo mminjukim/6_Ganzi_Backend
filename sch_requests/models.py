@@ -12,7 +12,7 @@ class DetailWork(models.Model):
     work_name = models.CharField(max_length=15)
 
 class FamilySchedule(models.Model):
-    fam_schedule = models.BigAutoField(primary_key=True)
+    fam_schedule_id = models.BigAutoField(primary_key=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="family_schedules")
     schedule_start_time = models.DateTimeField()
     schedule_end_time = models.DateTimeField()
