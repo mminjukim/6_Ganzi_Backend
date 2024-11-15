@@ -22,6 +22,7 @@ class RequestListSerializer(serializers.ModelSerializer):
 # 스케줄 상세보기용 
 class RequestSerializer(serializers.ModelSerializer):
     sent_user_name = serializers.CharField(source='sent_user.nickname')
+    target_user_name = serializers.CharField(source='target_user.nickname')
     category_name = serializers.CharField(source='fam_schedule.category.category_name')
     schedule_title = serializers.CharField(source='fam_schedule.schedule_title')
     schedule_time = serializers.DateTimeField(source='fam_schedule.schedule_start_time')
@@ -29,4 +30,4 @@ class RequestSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Request
-        fields = ['id', 'sent_user_name', 'category_name', 'schedule_title', 'schedule_time', 'schedule_memo']
+        fields = ['id', 'sent_user_name', 'target_user_name', 'category_name', 'schedule_title', 'schedule_time', 'schedule_memo']
