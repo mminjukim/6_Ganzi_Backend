@@ -1,5 +1,6 @@
 from django.db import models
 from accounts.models import *
+from django.conf import settings
 
 # Create your models here.
 class Category(models.Model):
@@ -16,7 +17,7 @@ class FamilySchedule(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="family_schedules")
     schedule_start_time = models.DateTimeField()
     schedule_end_time = models.DateTimeField()
-    schedule_title = models.CharField(max_length=15)
+    schedule_title = models.CharField(max_length=30)
     schedule_memo = models.CharField(max_length=50, blank=True, null=True)
     is_daily = models.BooleanField(default=False)
     is_weekly = models.BooleanField(default=False)
@@ -24,8 +25,8 @@ class FamilySchedule(models.Model):
     is_yearly = models.BooleanField(default=False)
 
 class Request(models.Model):
-    sent_user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name="snt_requests")
-    target_user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name="trg_requests")
+    sent_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='snt_requests')
+    target_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trg_requests')
     fam_schedule = models.ForeignKey(FamilySchedule, on_delete=models.CASCADE)
-    is_accepted = models.BooleanField(default=False) #요청 수락
-    is_checked = models.BooleanField(default=False) #요청 확인
+    is_accepted = models.BooleanField(default=False, verbose_name="요청 수락 여부")
+    is_checked = models.BooleanField(default=False, verbose_name="요청 확인 여부")
