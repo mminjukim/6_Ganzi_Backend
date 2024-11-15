@@ -1,5 +1,5 @@
 from django.db import models
-from family.models import *
+from accounts.models import *
 
 # Create your models here.
 class Category(models.Model):
@@ -24,7 +24,8 @@ class FamilySchedule(models.Model):
     is_yearly = models.BooleanField(default=False)
 
 class Request(models.Model):
-    family = models.ForeignKey(FamilyInfo, on_delete=models.CASCADE)
+    sent_user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name="snt_requests")
+    target_user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name="trg_requests")
     fam_schedule = models.ForeignKey(FamilySchedule, on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    is_accepted = models.BooleanField(default=False)
+    is_accepted = models.BooleanField(default=False) #요청 수락
+    is_checked = models.BooleanField(default=False) #요청 확인
