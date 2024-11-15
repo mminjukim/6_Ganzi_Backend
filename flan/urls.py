@@ -10,7 +10,7 @@ urlpatterns = [
     path('accounts/', include('allauth.urls')),
     path('ads/', include('ads.urls')),
     path('family/', include('family.urls')),
-    path('personal/', include('personal.urls')),
+    path('/', include('personal.urls')),
     path('sch_requests/', include('sch_requests.urls')),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
