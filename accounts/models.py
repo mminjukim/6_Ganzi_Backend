@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from family.models import FamilyInfo
+from django.conf import settings
 
 # Create your models here.
 class UserManager(BaseUserManager):
@@ -43,9 +44,8 @@ class User(AbstractUser):
     email = models.EmailField(unique=True, max_length=255)
     family = models.ForeignKey(FamilyInfo, on_delete=models.CASCADE)
     nickname = models.CharField(max_length=50, default="")
-    profile_img=models.ImageField(upload_to='%Y%m%d/', blank=True, default='')
-    profile_aggrement = models.BooleanField(default=False) # 선택약관 동의여부
-    password = models.CharField(max_length=128)
+    profile_img=models.ImageField(upload_to='user_img/%Y%m%d/', blank=True, null=True, default='')
+    profile_agreement = models.BooleanField(default=False, verbose_name='선택약관 동의 여부')
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -60,6 +60,6 @@ class Badge(models.Model):
     badge_name = models.CharField(max_length=20, default="")
 
 class AcquiredBadge(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     badge = models.ForeignKey(Badge, on_delete=models.CASCADE)
     family = models.ForeignKey(FamilyInfo, on_delete=models.CASCADE)
