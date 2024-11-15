@@ -42,7 +42,7 @@ class User(AbstractUser):
     user_id = models.BigAutoField(primary_key=True)
     username = None
     email = models.EmailField(unique=True, max_length=255)
-    family = models.ForeignKey(FamilyInfo, on_delete=models.CASCADE)
+    family = models.ForeignKey(FamilyInfo, on_delete=models.CASCADE, null=True)
     nickname = models.CharField(max_length=50, default="")
     profile_img=models.ImageField(upload_to='user_img/%Y%m%d/', blank=True, null=True, default='')
     profile_agreement = models.BooleanField(default=False, verbose_name='선택약관 동의 여부')
