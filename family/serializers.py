@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from sch_requests.models import Request
+from accounts.models import User
 
 
 # 스케줄 목록용 
@@ -31,3 +32,16 @@ class RequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Request
         fields = ['id', 'sent_user_name', 'target_user_name', 'category_name', 'schedule_title', 'schedule_time', 'schedule_memo']
+
+
+class ProfileImgSerializer(serializers.ModelSerializer):
+    profile_img = serializers.SerializerMethodField()
+
+    def get_profile_img(self, obj):
+        if (obj.profile_img is not None):
+            return obj.profile_img.url
+        return None
+
+    class Meta:
+        model = User
+        fields = ['profile_img']

@@ -2,18 +2,57 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.utils import timezone
+from collections import defaultdict
 
-from sch_requests.models import Request
+from accounts.models import User
+from sch_requests.models import Request, FamilyInfo
 from .serializers import *
 
 # Create your views here.
+
+
+# 메인 > 스케줄 전부 확인하기 (가족 캘린더)
+class FamilyCalendarView(APIView):
+    def get(self, request, y, m, d):
+        user = request.user
+        user_family = FamilyInfo.objects.get(family_id=user.family)
+        family_members = User.objects.filter(family=user_family)
+ 
+        schedules = defaultdict(lambda: {"fam_schedule_id": "", "category_name": "", "schedule_title": "", 
+                                         "schedule_start_time": "", "schedule_end_time": "", 
+                                         "schedule_memo": "", "target_users": []})
+        for member in family_members:
+            requests = Request.objects.filter(target_user=member, is_accepted=True)
+            member_img = ProfileImgSerializer(user, context=self.context)
+
+            for req in requests:
+                fam_schedule = req.fam_schedule
+
+                if fam_schedule.schedule_start_time.date() == timezone.datetime(y, m, d).date():
+                    if fam_schedule.fam_schedule_id not in schedules:
+                        schedules[fam_schedule.fam_schedule_id]["category_name"] = fam_schedule.category.category_name
+                        schedules[fam_schedule.fam_schedule_id]["schedule_title"] = fam_schedule.schedule_title
+                        schedules[fam_schedule.fam_schedule_id]["schedule_start_time"] = fam_schedule.schedule_start_time
+                        schedules[fam_schedule.fam_schedule_id]["schedule_end_time"] = fam_schedule.schedule_end_time
+                        schedules[fam_schedule.fam_schedule_id]["schedule_memo"] = fam_schedule.schedule_memo
+                    
+                    schedules[fam_schedule.fam_schedule_id]["target_users"].append(member_img)
+
+        result = [{"category_name": v["category_name"], "schedule_title": v["schedule_title"], 
+                   "schedule_start_time": v["schedule_start_time"], "schedule_end_time": v["schedule_end_time"],
+                   "schedule_memo": v["schedule_memo"], "target_users": v["target_users"]}
+                  for v in schedules.values()]
+
+        return Response(result, status=status.HTTP_200_OK)
+
 
 # 받은 스케줄 목록 view
 class AllIncomingRequestsView(APIView):
     def get(self, request):
         requests = Request.objects.filter(target_user=request.user, 
                                           is_accepted=False, is_checked=False).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True).data
+        requests_data = RequestListSerializer(requests, many=True, context=self.context).data
         return Response(requests_data, status=status.HTTP_200_OK)
     
 # 받은 스케줄 상세 view
@@ -43,7 +82,7 @@ class AllDeclinedRequestsView(APIView):
     def get(self, request):
         requests = Request.objects.filter(target_user=request.user, 
                                           is_accepted=False, is_checked=True).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True).data
+        requests_data = RequestListSerializer(requests, many=True, context=self.context).data
         return Response(requests_data, status=status.HTTP_200_OK)
     
 # 거절 스케줄 상세 view
@@ -70,7 +109,7 @@ class AllOutgoingRequestsView(APIView):
     def get(self, request):
         requests = Request.objects.filter(sent_user=request.user, 
                                           is_accepted=False, is_checked=True).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True).data
+        requests_data = RequestListSerializer(requests, many=True, context=self.context).data
         return Response(requests_data, status=status.HTTP_200_OK)
     
 # 보낸 스케줄 상세 view
