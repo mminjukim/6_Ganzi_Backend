@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     #dj-rest-auth 관련
     'dj_rest_auth',
     'dj_rest_auth.registration',
+    'django.contrib.sites',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',

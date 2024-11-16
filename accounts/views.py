@@ -54,8 +54,9 @@ class InfoUserDetailAPIView(APIView):
 # 카카오 로그인 URL로 리다이렉션
 def kakao_login(request):
     rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
+    scopes = "account_email"
     return redirect(
-        f"https://kauth.kakao.com/oauth/authorize?client_id={rest_api_key}&redirect_uri={KAKAO_CALLBACK_URI}&response_type=code"
+        f"https://kauth.kakao.com/oauth/authorize?client_id={rest_api_key}&redirect_uri={KAKAO_CALLBACK_URI}&response_type=code&scope={scopes}"
     )
 
 # 카카오 로그인 콜백
@@ -77,6 +78,7 @@ def kakao_callback(request):
     )
     token_req_json = token_req.json()
     access_token = token_req_json.get('access_token')
+    print(access_token)
 
     if not access_token:
         return JsonResponse({'err_msg': 'Failed to get access token'}, status=status.HTTP_400_BAD_REQUEST)
@@ -84,15 +86,22 @@ def kakao_callback(request):
     # 사용자 정보 요청
     profile_request = requests.get(
         "https://kapi.kakao.com/v2/user/me",
-        headers={"Authorization": f"Bearer {access_token}"}
+        headers={"Authorization": f"Bearer {access_token}"},
+        params ={
+            "property_keys" : '["kakao_account.email"]'
+        }
     )
     profile_json = profile_request.json()
+    print(profile_json)
 
     # 이메일 확인
     kakao_account = profile_json.get('kakao_account', {})
     email = kakao_account.get('email', None)
-    if not email:
-        email = f"{profile_json.get('id')}@kakao.com"
+    #if kakao_account.get('is_email_needs_agreement', False):
+    #    return JsonResponse({'err_msg': 'Email permission not granted'}, status=status.HTTP_400_BAD_REQUEST)
+
+    #if not email:
+    #    email = f"{profile_json.get('id')}@kakao.com"
 
     try:
         # 기존 사용자 확인
@@ -104,9 +113,14 @@ def kakao_callback(request):
 
         # JWT 토큰 발급
         access_token, refresh_token = create_jwt_token(user)
-        response = JsonResponse({'message': 'Login successful'})
-        response['Authorization'] = f'Bearer {access_token}'
-        response['Refresh-Token'] = refresh_token
+        #response = JsonResponse({'message': 'Login successful'})
+        #response['Authorization'] = f'Bearer {access_token}'
+        #response['Refresh-Token'] = refresh_token
+        response = JsonResponse({
+            'message': 'Login successful',
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        })
         return response
 
     except User.DoesNotExist:
