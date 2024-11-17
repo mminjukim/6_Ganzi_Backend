@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>구글 로그인</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 100px;
+        }
+        .login-btn {
+            background-color: #F7E200;
+            border: none;
+            border-radius: 5px;
+            padding: 15px 40px;
+            font-size: 16px;
+            cursor: pointer;
+            color: #3C1E1E;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        .login-btn:hover {
+            background-color: #FFCD00;
+        }
+    </style>
+</head>
+<body>
+    <h1>구글 로그인</h1>
+    <p>구글 계정으로 로그인하여 서비스를 이용하세요.</p>
+
+    <button class="login-btn" onclick="kakaoLogin()">구글로 로그인</button>
+
+    <script>
+        function kakaoLogin() {
+            // Django 백엔드의 구글 로그인 경로로 리디렉션
+            window.location.href = 'http://127.0.0.1:8000/accounts/kakao/login/';
+        }
+    </script>
+</body>
+</html>

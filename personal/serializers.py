@@ -43,14 +43,13 @@ class OneWordSerializer(serializers.ModelSerializer):
         fields = ['content']
     
 class PersonalScheduleSerializer(serializers.ModelSerializer):
-    date =serializers.SerializerMethodField()
-    schedule_date = serializers.DateField()
+    schedule_date = serializers.DateField(source='schedule_start_time')
     start_time = serializers.TimeField()
     end_time = serializers.TimeField()
 
     class Meta:
         model = PersonalSchedule
-        fields = ['personal_schedule_id', 'date','schedule_date', 'schedule_title', 'start_time', 'end_time', 'is_daily', 'is_weekly', 'is_monthly', 'is_yearly', 'schedule_start_time', 'schedule_end_time']
+        fields = ['personal_schedule_id', 'schedule_date', 'schedule_title', 'start_time', 'end_time', 'is_daily', 'is_weekly', 'is_monthly', 'is_yearly', 'schedule_start_time', 'schedule_end_time']
 
     def get_date(self, obj):
         return obj.schedule_start_time.date()
