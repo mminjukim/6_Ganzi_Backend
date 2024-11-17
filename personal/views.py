@@ -29,7 +29,7 @@ class HomeAPIView(APIView):
             "members": family_memos
         }).data
         
-        ads = Place.objects.all()
+        ads = Place.objects.order_by("?")[:3]
         ad_data = AdSerializer(ads, many=True).data
 
         return Response({
