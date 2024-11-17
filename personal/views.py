@@ -46,7 +46,7 @@ class OneWordAPIView(APIView):
             return Response({"message": "Memo data saved successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-class ScheduleManageAPIView(APIView):
+class ScheduleAPIView(APIView):
     def get(self, request):
         user = request.user
         date = request.GET.get('date')
