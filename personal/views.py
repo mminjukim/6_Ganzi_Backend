@@ -46,7 +46,7 @@ class OneWordAPIView(APIView):
             return Response({"message": "Memo data saved successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-class MyScheduleManageAPIView(APIView):
+class ScheduleManageAPIView(APIView):
     def get(self, request):
         user = request.user
         date = request.GET.get('date')
@@ -66,7 +66,6 @@ class MyScheduleManageAPIView(APIView):
         serializer = PersonalScheduleSerializer(schedules, many=True)
         return Response({"schedule": serializer.data}, status=status.HTTP_200_OK)
     
-class RegisterScheduleAPIView(APIView):
     def post(self, request):
         user = request.user
         serializer = PersonalScheduleSerializer(data=request.data, context = {'request':request})
