@@ -8,7 +8,7 @@ from .models import FamilyMemo
 from accounts.models import User
 from ads.models import Place
 from django.db import models
-from .serializers import FamilyScheduleSerializer, FamilyMessageSerializer, AdSerializer
+from .serializers import FamilyScheduleSerializer, FamilyMessageSerializer, AdSerializer, OneWordSerializer
 
 # 메인페이지 기능 구현
 class HomeAPIView(APIView):
@@ -37,3 +37,11 @@ class HomeAPIView(APIView):
             "fam_message":fam_message_data,
             "ad":ad_data
         })
+
+class OneWordApiView(APIView):
+    def post(self, request):
+        serializer = OneWordSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response({"message": "Memo data saved successfully"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

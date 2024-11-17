@@ -5,7 +5,7 @@ app_name = 'personal'
 
 urlpatterns = [
     path('', HomeAPIView.as_view()),
-    #path('personal/one-word/'),
+    path('personal/one-word/'),
     #path('personal/my-schedule/'),
     #path('personal/register/'),
     #path('personal/schedule/'),
