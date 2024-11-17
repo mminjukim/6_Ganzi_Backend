@@ -73,3 +73,49 @@ class ScheduleAPIView(APIView):
             serializer.save()
             return Response({"message": "Schedule added successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class ScheduleManageAPIView(APIView):
+    def get(self, request, personal_schedule_id=None):
+        user = request.user.user_id
+        print(user)
+        print(f"Personal Schedule ID: {personal_schedule_id}")
+        if personal_schedule_id:
+            # 특정 스케줄 조회
+            try:
+                schedule = PersonalSchedule.objects.get(
+                    user=user, personal_schedule_id=personal_schedule_id)
+                serializer = PersonalScheduleSerializer(schedule)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except PersonalSchedule.DoesNotExist:
+                return Response({"message": "Schedule not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # 모든 스케줄 조회
+            schedules = PersonalSchedule.objects.filter(user=user).order_by('schedule_start_time')
+            serializer = PersonalScheduleSerializer(schedules, many=True)
+            return Response({"schedule": serializer.data}, status=status.HTTP_200_OK)
+
+    def put(self, request, personal_schedule_id):
+        user = request.user.user_id
+        try:
+            schedule = PersonalSchedule.objects.get(user=user, personal_schedule_id=personal_schedule_id)
+        except PersonalSchedule.DoesNotExist:
+            return Response({"message": "Schedule not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        # PUT 요청에 대한 데이터 유효성 검사
+        serializer = PersonalScheduleSerializer(schedule, data=request.data)
+        if serializer.is_valid():
+            serializer.save()  # 데이터 저장
+            return Response({"schedule": serializer.data}, status=status.HTTP_200_OK)
+        return Response({"message": "Invalid data", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def delete(self, request, personal_schedule_id):
+        user = request.user.user_id
+        try:
+            schedule = PersonalSchedule.objects.get(
+                user=user, personal_schedule_id=personal_schedule_id)
+        except PersonalSchedule.DoesNotExist:
+            return Response({"message": "Schedule not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        schedule.delete()
+        return Response({"message": "Schedule deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
