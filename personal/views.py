@@ -76,7 +76,9 @@ class ScheduleAPIView(APIView):
     
 class ScheduleManageAPIView(APIView):
     def get(self, request, personal_schedule_id=None):
-        user = request.user
+        user = request.user.user_id
+        print(user)
+        print(f"Personal Schedule ID: {personal_schedule_id}")
         if personal_schedule_id:
             # 특정 스케줄 조회
             try:
@@ -93,22 +95,22 @@ class ScheduleManageAPIView(APIView):
             return Response({"schedule": serializer.data}, status=status.HTTP_200_OK)
 
     def put(self, request, personal_schedule_id):
-        user = request.user
+        user = request.user.user_id
         try:
-            # 기존 스케줄 찾기
             schedule = PersonalSchedule.objects.get(user=user, personal_schedule_id=personal_schedule_id)
         except PersonalSchedule.DoesNotExist:
             return Response({"message": "Schedule not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        # 요청 본문에 포함된 데이터를 받아서 전체 리소스를 교체
+        # PUT 요청에 대한 데이터 유효성 검사
         serializer = PersonalScheduleSerializer(schedule, data=request.data)
         if serializer.is_valid():
             serializer.save()  # 데이터 저장
             return Response({"schedule": serializer.data}, status=status.HTTP_200_OK)
         return Response({"message": "Invalid data", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
+
     def delete(self, request, personal_schedule_id):
-        user = request.user
+        user = request.user.user_id
         try:
             schedule = PersonalSchedule.objects.get(
                 user=user, personal_schedule_id=personal_schedule_id)
