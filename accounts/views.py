@@ -130,9 +130,14 @@ def kakao_callback(request):
 
         # JWT 토큰 발급
         access_token, refresh_token = create_jwt_token(user)
-        response = JsonResponse({'message': 'User created and logged in'})
-        response['Authorization'] = f'Bearer {access_token}'
-        response['Refresh-Token'] = refresh_token
+        #response = JsonResponse({'message': 'User created and logged in'})
+        #response['Authorization'] = f'Bearer {access_token}'
+        #response['Refresh-Token'] = refresh_token
+        response = JsonResponse({
+            'message': 'User created and logged i.n',
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        })
         return response
 
 class TokenRefreshAPIView(APIView):
