@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import datetime, timezone
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import status
@@ -49,7 +49,18 @@ class OneWordApiView(APIView):
 class MyScheduleManageAPIView(APIView):
     def get(self, request):
         user = request.user
-        schedules = PersonalSchedule.objects.filter(user=user).order_by('schedule_start_time')
+        date = request.GET.get('date')
+        
+        if date:
+            try:
+                schedule_date = datetime.strptime(date, '%Y-%m-%d').date()
+                schedules = PersonalSchedule.objects.filter(user=user, schedule_start_time__date=schedule_date).order_by('schedule_start_time')
+            except ValueError:
+                return Response({"message": "Invalid date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # 날짜가 없으면 모든 스케줄 반환
+            schedules = PersonalSchedule.objects.filter(user=user).order_by('schedule_start_time')
+
         if not schedules.exists():
             return Response({"message": "No schedules found."}, status=status.HTTP_404_NOT_FOUND)
         serializer = PersonalScheduleSerializer(schedules, many=True)
