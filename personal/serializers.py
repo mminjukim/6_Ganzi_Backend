@@ -35,3 +35,8 @@ class AdSerializer(serializers.ModelSerializer):
     class Meta:
         model = Place
         fields = ['place_img']
+
+class OneWordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FamilyMemo
+        fields = ['content']
