@@ -1,3 +1,4 @@
+from datetime import datetime
 from rest_framework import serializers
 from .models import FamilyMemo, PersonalSchedule
 from sch_requests.models import FamilySchedule
@@ -42,11 +43,33 @@ class OneWordSerializer(serializers.ModelSerializer):
         fields = ['content']
     
 class PersonalScheduleSerializer(serializers.ModelSerializer):
-    date = serializers.SerializerMethodField()
+    schedule_date = serializers.DateField(source='schedule_start_time')
+    start_time = serializers.TimeField()
+    end_time = serializers.TimeField()
 
     class Meta:
         model = PersonalSchedule
-        fields = ['personal_schedule_id', 'date', 'schedule_title', 'schedule_start_time', 'schedule_end_time']
+        fields = ['personal_schedule_id', 'schedule_date', 'schedule_title', 'start_time', 'end_time', 'is_daily', 'is_weekly', 'is_monthly', 'is_yearly', 'schedule_start_time', 'schedule_end_time']
 
     def get_date(self, obj):
         return obj.schedule_start_time.date()
+    
+    def create(self, validated_data):
+        schedule_date = validated_data.get('schedule_date')
+        start_time = validated_data.get('start_time')
+        end_time = validated_data.get('end_time')
+
+        schedule_start_time = datetime.combine(schedule_date, start_time)
+        schedule_end_time = datetime.combine(schedule_date, end_time)
+
+        schedule = PersonalSchedule.objects.create(
+            schedule_title=validated_data.get('schedule_title'),
+            user=self.context['request'].user,
+            schedule_start_time=schedule_start_time,
+            schedule_end_time=schedule_end_time,
+            is_daily=validated_data.get('is_daily', False),
+            is_weekly=validated_data.get('is_weekly', False),
+            is_monthly=validated_data.get('is_monthly', False),
+            is_yearly=validated_data.get('is_yearly', False),
+        )
+        return schedule

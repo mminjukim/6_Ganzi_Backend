@@ -38,7 +38,7 @@ class HomeAPIView(APIView):
             "ad":ad_data
         })
 
-class OneWordApiView(APIView):
+class OneWordAPIView(APIView):
     def post(self, request):
         serializer = OneWordSerializer(data=request.data)
         if serializer.is_valid():
@@ -46,7 +46,7 @@ class OneWordApiView(APIView):
             return Response({"message": "Memo data saved successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-class MyScheduleManageAPIView(APIView):
+class ScheduleAPIView(APIView):
     def get(self, request):
         user = request.user
         date = request.GET.get('date')
@@ -65,3 +65,11 @@ class MyScheduleManageAPIView(APIView):
             return Response({"message": "No schedules found."}, status=status.HTTP_404_NOT_FOUND)
         serializer = PersonalScheduleSerializer(schedules, many=True)
         return Response({"schedule": serializer.data}, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        user = request.user
+        serializer = PersonalScheduleSerializer(data=request.data, context = {'request':request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Schedule added successfully"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
