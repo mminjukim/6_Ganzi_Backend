@@ -103,19 +103,13 @@ def kakao_callback(request):
     #if not email:
     #    email = f"{profile_json.get('id')}@kakao.com"
 
+    kakao_uid = str(profile_json.get('id'))
     try:
-        # 기존 사용자 확인
-        user = User.objects.get(email=email)
-        social_user = SocialAccount.objects.get(user=user)
-
-        if social_user.provider != 'kakao':
-            return JsonResponse({'err_msg': 'No matching social type'}, status=status.HTTP_400_BAD_REQUEST)
+        social_user = SocialAccount.objects.get(provider='kakao', uid=kakao_uid)
+        user = social_user.user
 
         # JWT 토큰 발급
         access_token, refresh_token = create_jwt_token(user)
-        #response = JsonResponse({'message': 'Login successful'})
-        #response['Authorization'] = f'Bearer {access_token}'
-        #response['Refresh-Token'] = refresh_token
         response = JsonResponse({
             'message': 'Login successful',
             'access_token': access_token,
@@ -123,18 +117,21 @@ def kakao_callback(request):
         })
         return response
 
-    except User.DoesNotExist:
-        # 신규 유저 생성
-        user = User.objects.create(email=email)
-        SocialAccount.objects.create(user=user, provider='kakao', extra_data=profile_json)
+    except SocialAccount.DoesNotExist:
+        # SocialAccount 새로 생성
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # User 새로 생성
+            user = User.objects.create(email=email)
+
+        # SocialAccount 생성
+        SocialAccount.objects.create(user=user, provider='kakao', uid=kakao_uid, extra_data=profile_json)
 
         # JWT 토큰 발급
         access_token, refresh_token = create_jwt_token(user)
-        #response = JsonResponse({'message': 'User created and logged in'})
-        #response['Authorization'] = f'Bearer {access_token}'
-        #response['Refresh-Token'] = refresh_token
         response = JsonResponse({
-            'message': 'User created and logged i.n',
+            'message': 'User created and logged in',
             'access_token': access_token,
             'refresh_token': refresh_token,
         })
