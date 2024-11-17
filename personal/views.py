@@ -4,11 +4,11 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
 from sch_requests.models import Request, FamilySchedule
-from .models import FamilyMemo
+from .models import FamilyMemo, PersonalSchedule
 from accounts.models import User
 from ads.models import Place
 from django.db import models
-from .serializers import FamilyScheduleSerializer, FamilyMessageSerializer, AdSerializer, OneWordSerializer
+from .serializers import FamilyScheduleSerializer, FamilyMessageSerializer, AdSerializer, OneWordSerializer, PersonalScheduleSerializer
 
 # 메인페이지 기능 구현
 class HomeAPIView(APIView):
@@ -45,3 +45,12 @@ class OneWordApiView(APIView):
             serializer.save(user=request.user)
             return Response({"message": "Memo data saved successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class MyScheduleManageAPIView(APIView):
+    def get(self, request):
+        user = request.user
+        schedules = PersonalSchedule.objects.filter(user=user).order_by('schedule_start_time')
+        if not schedules.exists():
+            return Response({"message": "No schedules found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PersonalScheduleSerializer(schedules, many=True)
+        return Response({"schedule": serializer.data}, status=status.HTTP_200_OK)

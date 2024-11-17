@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import FamilyMemo
+from .models import FamilyMemo, PersonalSchedule
 from sch_requests.models import FamilySchedule
 from accounts.models import User
 from ads.models import Place
@@ -40,3 +40,13 @@ class OneWordSerializer(serializers.ModelSerializer):
     class Meta:
         model = FamilyMemo
         fields = ['content']
+    
+class PersonalScheduleSerializer(serializers.ModelSerializer):
+    date = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PersonalSchedule
+        fields = ['personal_schedule_id', 'date', 'schedule_title', 'schedule_start_time', 'schedule_end_time']
+
+    def get_date(self, obj):
+        return obj.schedule_start_time.date()
