@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>구글 로그인</title>
+    <title>카카오 로그인</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,14 +27,14 @@
     </style>
 </head>
 <body>
-    <h1>구글 로그인</h1>
-    <p>구글 계정으로 로그인하여 서비스를 이용하세요.</p>
+    <h1>카카오 로그인</h1>
+    <p>카카오 계정으로 로그인하여 서비스를 이용하세요.</p>
 
-    <button class="login-btn" onclick="kakaoLogin()">구글로 로그인</button>
+    <button class="login-btn" onclick="kakaoLogin()">카카오로 로그인</button>
 
     <script>
         function kakaoLogin() {
-            // Django 백엔드의 구글 로그인 경로로 리디렉션
+            // Django 백엔드의 카카오 로그인 경로로 리디렉션
             window.location.href = 'http://127.0.0.1:8000/accounts/kakao/login/';
         }
     </script>
