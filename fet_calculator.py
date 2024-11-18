@@ -16,14 +16,19 @@ def calc_family_empty_time():
     today = datetime.now()
     calc_start_date = datetime(today.year, today.month, today.day) + timedelta(days=1)
     calc_end_date = datetime(today.year, today.month, today.day) + timedelta(days=7)
+
+    print(today, calc_start_date, calc_end_date)
     
     for family in all_families:
         fam_members = User.objects.filter(family=family)
+        print(family.family_id, fam_members)
 
         user_schedules = PersonalSchedule.objects.filter(
             user__in=fam_members, 
-            schedule_start_time__lt=calc_end_date,
-            schedule_end_time__gt=calc_start_date).order_by('schedule_start_time')
+            schedule_start_time__lte=calc_end_date,
+            schedule_end_time__gte=calc_start_date).order_by('schedule_start_time')
+        
+        print(family.family_id, user_schedules)
         
         # 스케줄이 겹치지 않는 빈 시간을 저장할 리스트
         free_time_slots = []
@@ -42,13 +47,13 @@ def calc_family_empty_time():
             free_time_slots.append((last_end_time, calc_end_date))
 
         requests = Request.objects.filter(target_user__in=fam_members, is_accepted=True)
-        fam_schedules = FamilySchedule.objects.filter(request__in=requests).distinct().order_by('schedule_start_time')
+        fam_schedules = FamilySchedule.objects.filter(
+            request__in=requests,
+            schedule_start_time__lte=calc_end_date,
+            schedule_end_time__gte=calc_start_date).distinct().order_by('schedule_start_time')
+        
         print(family.family_id, fam_schedules)
 
         
-        
-            
-
-
 
 calc_family_empty_time()
