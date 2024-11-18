@@ -13,6 +13,7 @@ from allauth.socialaccount.providers.kakao import views as kakao_view
 from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from .models import User
+from family.models import FamilyInfo
 from .serializers import UserSerializer
 
 BASE_URL = 'http://127.0.0.1:8000/'
@@ -54,7 +55,7 @@ class InfoUserDetailAPIView(APIView):
 # 카카오 로그인 URL로 리다이렉션
 def kakao_login(request):
     rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
-    scopes = "account_email"
+    scopes = "account_email friends talk_message"
     return redirect(
         f"https://kauth.kakao.com/oauth/authorize?client_id={rest_api_key}&redirect_uri={KAKAO_CALLBACK_URI}&response_type=code&scope={scopes}"
     )
@@ -105,8 +106,14 @@ def kakao_callback(request):
 
     kakao_uid = str(profile_json.get('id'))
     try:
+        # 이미 소셜 계정이 있을 경우
         social_user = SocialAccount.objects.get(provider='kakao', uid=kakao_uid)
         user = social_user.user
+
+        # kakao_access_token 필드 업데이트
+        if hasattr(user, 'kakao_access_token'):
+            user.kakao_access_token = access_token
+            user.save()
 
         # JWT 토큰 발급
         access_token, refresh_token = create_jwt_token(user)
@@ -115,6 +122,7 @@ def kakao_callback(request):
             'access_token': access_token,
             'refresh_token': refresh_token,
         })
+
         return response
 
     except SocialAccount.DoesNotExist:
@@ -128,6 +136,10 @@ def kakao_callback(request):
         # SocialAccount 생성
         SocialAccount.objects.create(user=user, provider='kakao', uid=kakao_uid, extra_data=profile_json)
 
+        # kakao_access_token 필드에 저장
+        user.kakao_access_token = access_token
+        user.save()
+
         # JWT 토큰 발급
         access_token, refresh_token = create_jwt_token(user)
         response = JsonResponse({
@@ -135,6 +147,7 @@ def kakao_callback(request):
             'access_token': access_token,
             'refresh_token': refresh_token,
         })
+
         return response
 
 class TokenRefreshAPIView(APIView):
@@ -158,8 +171,149 @@ class KakaoLogin(SocialLoginView):
     client_class = OAuth2Client
     callback_url = KAKAO_CALLBACK_URI
 
+# 카카오 로그아웃
+class KakaoLogoutView(APIView):
+    permission_classes = [IsAuthenticated]
 
-class ProfileAPIView(APIView):
+    def post(self, request):
+        access_token = request.user.kakao_access_token
+        
+        logout_request = requests.post(
+            "https://kapi.kakao.com/v1/user/logout",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        logout_json = logout_request.json()
+        
+        if logout_request.status_code == 200:
+            return Response({"message": "Successfully logged out from Kakao"}, status=200)
+        else:
+            return Response({"error": logout_json.get('msg', 'Logout failed')}, status=logout_request.status_code)
+
+# 회원탈퇴
+class KakaoUnlinkView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # 인증된 사용자의 카카오 액세스 토큰 가져오기
+        access_token = request.user.kakao_access_token
+        
+        # 카카오 연결 끊기 요청
+        unlink_request = requests.post(
+            "https://kapi.kakao.com/v1/user/unlink",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        
+        unlink_json = unlink_request.json()
+        
+        if unlink_request.status_code == 200:
+            # 카카오와 연결이 끊어졌다면, 서버에서 사용자 정보 삭제
+            try:
+                # 해당 사용자의 SocialAccount를 찾아 삭제
+                social_account = SocialAccount.objects.get(user=request.user, provider='kakao')
+                social_account.delete()
+                
+                # 서버의 사용자 정보도 삭제
+                request.user.delete()
+
+                return Response({"message": "Successfully disconnected from Kakao and deleted user from the server"}, status=200)
+            except SocialAccount.DoesNotExist:
+                return Response({"error": "Kakao account not linked to this user"}, status=400)
+        else:
+            return Response({"error": unlink_json.get('msg', 'Failed to unlink from Kakao')}, status=unlink_request.status_code)
+
+# 카카오 친구목록
+class KakaoFriendsListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        access_token = request.user.kakao_access_token
+
+        if not access_token:
+            return Response({"error": "Access token is required"}, status=400)
+        
+        # 카카오 친구 목록 요청
+        url = "https://kapi.kakao.com/v1/api/talk/friends"
+        headers = {
+            "Authorization": f"Bearer {access_token}"
+        }
+
+        try:
+            response = requests.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return Response(data, status=200)
+            else:
+                return Response(response.json(), status=response.status_code)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Failed to connect to Kakao API", "details": str(e)}, status=500)
+
+#카카오 친구에게 메시지 전송
+class KakaoSendMSGView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        access_token = request.user.kakao_access_token
+        
+        # 클라이언트에서 받은 친구 UUID와 메시지 텍스트
+        friend_uuid = request.data.get("friend_uuid")
+        
+        if not friend_uuid:
+            return Response({"error": "Friend UUID is required"}, status=400)
+
+        # 카카오 메시지 전송 요청
+        url = "https://kapi.kakao.com/v1/api/talk/friends/message/default/send"
+        headers = {
+            "Authorization": f"Bearer {access_token}"
+        }
+        data = {
+            "receiver_uuids": f'["{friend_uuid}"]',
+            "template_object": {
+                "object_type": "text",
+                "text": "flan으로 당신을 초대합니다",
+                "link": {
+                    "web_url": "https://www.example.com"
+                },
+                "button_title": "초대 링크 열기"
+            }
+        }
+        
+        try:
+            response = requests.post(url, headers=headers, json=data)
+            
+            if response.status_code == 200:
+                return Response({"message": "Message sent successfully"}, status=200)
+            else:
+                return Response(response.json(), status=response.status_code)
+        
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Failed to send message", "details": str(e)}, status=500)
+
+
+# 링크 접속 했을 때 ~
+## 등록 수정 합치는 것이 좋을듯 나중에 로그아웃하고 다시 들어왔을 때 ~
+# 프로필 등록
+class ProfileRegisterAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def patch(self, request):
+        user = User.objects.get(user_id=request.user.user_id)
+
+        if user.family is None:
+            # 새로운 FamilyInfo 생성
+            new_family = FamilyInfo.objects.create(fam_num=1)
+            user.family = new_family
+            user.save()
+
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# 프로필 수정
+class ProfileEditAPIView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
 
@@ -167,7 +321,7 @@ class ProfileAPIView(APIView):
         user = User.objects.get(user_id=request.user.user_id)
         serializer = UserSerializer(user)
         return Response(serializer.data)
-
+    
     def patch(self, request):
         user = User.objects.get(user_id=request.user.user_id)
         serializer = UserSerializer(user, data=request.data, partial=True)
