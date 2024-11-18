@@ -5,9 +5,8 @@ from dateutil.relativedelta import relativedelta
 from rest_framework import serializers
 from .models import FamilyMemo, PersonalSchedule
 from sch_requests.models import FamilySchedule
-from accounts.models import User
 from ads.models import Place
-from django.utils.timezone import is_aware, localtime, make_aware
+from django.utils.timezone import make_aware
 
 class FamilyScheduleSerializer(serializers.ModelSerializer):
     category_id = serializers.IntegerField(source='category.category_id')  # ForeignKey 필드 직접 참조
@@ -21,7 +20,7 @@ class FamilyScheduleSerializer(serializers.ModelSerializer):
         return obj.schedule_start_time.date()
 
 class FamilyMemoSerializer(serializers.ModelSerializer):
-    user_id = serializers.IntegerField(source='user.id')
+    user_id = serializers.IntegerField(source='user.user_id')
     profile_img = serializers.SerializerMethodField()
     content = serializers.CharField()
 
@@ -30,16 +29,27 @@ class FamilyMemoSerializer(serializers.ModelSerializer):
         fields = ['user_id', 'profile_img', 'content']
 
     def get_profile_img(self, obj):
-        return obj.user.profile_img.url if obj.user.profile_img else None
+        request = self.context.get('request')
+        if obj.user.profile_img:
+            return request.build_absolute_uri(obj.user.profile_img.url)
+        return None
 
 class FamilyMessageSerializer(serializers.Serializer):
     family_id = serializers.IntegerField()
     members = FamilyMemoSerializer(many=True)
 
 class AdSerializer(serializers.ModelSerializer):
+    place_img = serializers.SerializerMethodField()
+
     class Meta:
         model = Place
         fields = ['place_img']
+        
+    def get_place_img(self, obj):
+        request = self.context.get('request')
+        if obj.place_img:
+            return request.build_absolute_uri(obj.place_img.url)
+        return None
 
 class OneWordSerializer(serializers.ModelSerializer):
     class Meta:
