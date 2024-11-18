@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime
+from django.utils import timezone
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import status
@@ -10,33 +11,40 @@ from ads.models import Place
 from django.db import models
 from .serializers import FamilyScheduleSerializer, FamilyMessageSerializer, AdSerializer, OneWordSerializer, PersonalScheduleSerializer
 
-# 메인페이지 기능 구현
 class HomeAPIView(APIView):
-     def get(self, request):
-        user = request.user
+    def get(self, request):
+        user = request.user  # request.user는 User 객체
         accepted_requests = Request.objects.filter(
             (models.Q(sent_user=user) | models.Q(target_user=user)) & models.Q(is_accepted=True)
         )
         schedules = FamilySchedule.objects.filter(fam_schedule_id__in=accepted_requests.values('fam_schedule_id'))
         schedule_data = FamilyScheduleSerializer(schedules, many=True).data
         
-        family_id = user.family
-        family_members = User.objects.filter(family = family_id)
+        current_date = timezone.now().date()  # 현재 날짜를 가져옵니다.
+        print(f"Current date: {current_date}")
+        
+        # user.family는 FamilyInfo 객체
+        family_id = user.family_id
+        family_members = User.objects.filter(family=family_id)
         family_memos = FamilyMemo.objects.filter(user__in=family_members, created_at__date=timezone.now().date())
         
-        fam_message_data = FamilyMessageSerializer({
-            "family_id": family_id,
-            "members": family_memos
-        }).data
+        fam_message_data = FamilyMessageSerializer(
+            {
+                "family_id": family_id,
+                "members": family_memos
+            },
+            context={'request': request}
+        ).data
         
         ads = Place.objects.order_by("?")[:3]
         ad_data = AdSerializer(ads, many=True).data
 
         return Response({
             "schedule": schedule_data,
-            "fam_message":fam_message_data,
-            "ad":ad_data
+            "fam_message": fam_message_data,
+            "ad": ad_data
         })
+
 
 class OneWordAPIView(APIView):
     def post(self, request):
