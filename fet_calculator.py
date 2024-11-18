@@ -4,8 +4,8 @@ import django
 django.setup()
 
 from datetime import timedelta, datetime, time
-from django.utils import timezone
-from family.models import FamilyInfo, FamilyEmptyTime
+from dateutil.relativedelta import relativedelta
+from family.models import FamilyInfo
 from accounts.models import User
 from personal.models import PersonalSchedule
 from sch_requests.models import FamilySchedule, Request
@@ -93,13 +93,24 @@ def calc_family_empty_time(family_id):
 
 '''
 가족스케줄 요청시 시간 비는 구성원 띄우는 용도의 Personal Empty Time 계산 
+    - req_start_time: 요청 스케줄의 시작 시간
+    - req_end_time  : 요청 스케줄의 끝 시간
+    - is_repeated   : 반복 주기 (0: 반복없음, 1: daily, 2: weekly, 3: monthly, 4: yearly)
 '''
-def calc_personal_empty_time(req_start_time, req_end_time, user_id):
-    DAY_START = time(8, 0) 
-    DAY_END = time(22, 0) 
+def calc_personal_empty_time(req_start_time, req_end_time, is_repeated, user_id):
+    calc_start_time = req_start_time = datetime.strptime(req_start_time, '%Y-%m-%d %H:%M:%S')
+    calc_end_time = req_end_time = datetime.strptime(req_end_time, '%Y-%m-%d %H:%M:%S')
 
-    req_start_time = datetime.strptime(req_start_time, '%Y-%m-%d %H:%M:%S')
-    req_end_time = datetime.strptime(req_end_time, '%Y-%m-%d %H:%M:%S')
+    if is_repeated == 0:
+        repeat_cnt = 1
+    elif is_repeated == 1:
+        repeat_cnt = 7
+    elif is_repeated == 2:
+        repeat_cnt = 4
+    elif is_repeated == 3:
+        repeat_cnt = 12
+    elif is_repeated == 4:
+        repeat_cnt = 5
 
     user = User.objects.get(user_id=user_id)
     family = FamilyInfo.objects.get(family_id=user.family.family_id)
@@ -107,15 +118,38 @@ def calc_personal_empty_time(req_start_time, req_end_time, user_id):
 
     available_members = []
     for member in fam_members:
-        # 이미 해당 시간에 스케줄이 있는 가족구성원은 결과에서 제외 
-        user_schedules = PersonalSchedule.objects.filter(user=member, schedule_start_time__lte=req_end_time,
-                                                         schedule_end_time__gte=req_start_time).order_by('schedule_start_time')
-        if not user_schedules:
-            requests = Request.objects.filter(target_user=member, is_accepted=True)
-            fam_schedules = FamilySchedule.objects.filter(request__in=requests, schedule_start_time__lte=req_end_time, 
-                                                        schedule_end_time__gte=req_start_time).distinct().order_by('schedule_start_time')
-            if not fam_schedules:
-                available_members.append(member)
+        calc_start_time = req_start_time
+        calc_end_time = req_end_time
+
+        for i in range(repeat_cnt):
+            user_schedules = PersonalSchedule.objects.filter(user=member, schedule_start_time__lte=calc_end_time,
+                                                            schedule_end_time__gte=calc_start_time).order_by('schedule_start_time')
+            # 해당 시간에 개인스케줄 없는 경우에만 추가로 가족스케줄 있는지 계산 
+            if not user_schedules:
+                requests = Request.objects.filter(target_user=member, is_accepted=True)
+                fam_schedules = FamilySchedule.objects.filter(request__in=requests, schedule_start_time__lte=calc_end_time, 
+                                                            schedule_end_time__gte=calc_start_time).distinct().order_by('schedule_start_time')
+                if not fam_schedules:
+                    # 모든 반복 끝났는데 개인/가족스케줄 없다면 시간 빈 것으로 판단하고 결과에 넣음 
+                    if repeat_cnt == i+1:
+                        available_members.append(member)
+                    else:
+                        if is_repeated == 1:
+                            calc_start_time += timedelta(days=1)
+                            calc_end_time += timedelta(days=1)
+                        elif is_repeated == 2:
+                            calc_start_time += timedelta(days=7)
+                            calc_end_time += timedelta(days=7)
+                        elif is_repeated == 3:
+                            calc_start_time += relativedelta(months=1)
+                            calc_end_time += relativedelta(months=1)
+                        elif is_repeated == 4:
+                            calc_start_time += relativedelta(years=1)
+                            calc_end_time += relativedelta(years=1)
+                else:
+                    break
+            else: 
+                break
     
     print(available_members)
     return available_members
