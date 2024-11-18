@@ -16,7 +16,7 @@ from .serializers import *
 class FamilyCalendarView(APIView):
     def get(self, request, y, m, d):
         user = request.user
-        user_family = FamilyInfo.objects.get(family_id=user.family)
+        user_family = FamilyInfo.objects.get(family_id=user.family.family_id)
         family_members = User.objects.filter(family=user_family)
  
         schedules = defaultdict(lambda: {"fam_schedule_id": "", "category_name": "", "schedule_title": "", 
@@ -24,7 +24,7 @@ class FamilyCalendarView(APIView):
                                          "schedule_memo": "", "target_users": []})
         for member in family_members:
             requests = Request.objects.filter(target_user=member, is_accepted=True)
-            member_img = ProfileImgSerializer(user, context=self.context)
+            member_img = ProfileImgSerializer(user, context={'request': request}).data['profile_img']
 
             for req in requests:
                 fam_schedule = req.fam_schedule
@@ -52,7 +52,7 @@ class AllIncomingRequestsView(APIView):
     def get(self, request):
         requests = Request.objects.filter(target_user=request.user, 
                                           is_accepted=False, is_checked=False).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True, context=self.context).data
+        requests_data = RequestListSerializer(requests, many=True, context={'request': request}).data
         return Response(requests_data, status=status.HTTP_200_OK)
     
 # 받은 스케줄 상세 view
@@ -82,7 +82,7 @@ class AllDeclinedRequestsView(APIView):
     def get(self, request):
         requests = Request.objects.filter(target_user=request.user, 
                                           is_accepted=False, is_checked=True).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True, context=self.context).data
+        requests_data = RequestListSerializer(requests, many=True, context={'request': request}).data
         return Response(requests_data, status=status.HTTP_200_OK)
     
 # 거절 스케줄 상세 view
@@ -107,9 +107,8 @@ class DeclinedRequestView(APIView):
 # 보낸 스케줄 목록 view
 class AllOutgoingRequestsView(APIView):
     def get(self, request):
-        requests = Request.objects.filter(sent_user=request.user, 
-                                          is_accepted=False, is_checked=True).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True, context=self.context).data
+        requests = Request.objects.filter(sent_user=request.user).order_by('-id')[:100]
+        requests_data = RequestListSerializer(requests, many=True, context={'request': request}).data
         return Response(requests_data, status=status.HTTP_200_OK)
     
 # 보낸 스케줄 상세 view
