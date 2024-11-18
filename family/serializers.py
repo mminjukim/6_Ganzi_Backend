@@ -21,7 +21,8 @@ class RequestSerializer(serializers.ModelSerializer):
     target_user_name = serializers.CharField(source='target_user.nickname')
     category_name = serializers.CharField(source='fam_schedule.category.category_name')
     schedule_title = serializers.CharField(source='fam_schedule.schedule_title')
-    schedule_time = serializers.DateTimeField(source='fam_schedule.schedule_start_time')
+    schedule_time = serializers.DateTimeField(source='fam_schedule.schedule_start_time',
+                                              format='%Y년 %m월 %d일 %H:%M')
     schedule_memo = serializers.CharField(source='fam_schedule.schedule_memo')
 
     class Meta:
