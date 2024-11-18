@@ -46,6 +46,7 @@ class User(AbstractUser):
     nickname = models.CharField(max_length=50, default="")
     profile_img=models.ImageField(upload_to='user_img/%Y%m%d/', blank=True, null=True, default='')
     profile_agreement = models.BooleanField(default=False, verbose_name='선택약관 동의 여부')
+    kakao_access_token = models.CharField(max_length=255, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
