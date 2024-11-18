@@ -94,9 +94,6 @@ class PersonalScheduleSerializer(serializers.ModelSerializer):
         schedule_start_time = datetime.combine(schedule_date, start_time)
         schedule_end_time = datetime.combine(schedule_date, end_time)
 
-        schedule_start_time = timezone.make_aware(schedule_start_time, timezone.get_current_timezone())
-        schedule_end_time = timezone.make_aware(schedule_end_time, timezone.get_current_timezone())
-
         schedules = []
 
         if validated_data.get('is_daily', False):
@@ -154,6 +151,13 @@ class PersonalScheduleSerializer(serializers.ModelSerializer):
                     schedule_end_time=end,
                     **validated_data
                 ))
+        if not schedules:
+            schedules.append(PersonalSchedule(
+                user=user,
+                schedule_start_time=schedule_start_time,
+                schedule_end_time=schedule_end_time,
+                **validated_data
+            ))
 
         schedule = PersonalSchedule.objects.bulk_create(schedules)
         return schedule
@@ -168,10 +172,6 @@ class PersonalScheduleSerializer(serializers.ModelSerializer):
             # 입력 받은 날짜 및 시간을 datetime으로 변환
             schedule_start_time = datetime.combine(schedule_date, start_time)
             schedule_end_time = datetime.combine(schedule_date, end_time)
-
-            # timezone-aware로 변환
-            schedule_start_time = make_aware(schedule_start_time, timezone.get_current_timezone())
-            schedule_end_time = make_aware(schedule_end_time, timezone.get_current_timezone())
 
             # datetime 객체를 저장
             instance.schedule_start_time = schedule_start_time

@@ -13,16 +13,13 @@ from .serializers import FamilyScheduleSerializer, FamilyMessageSerializer, AdSe
 
 class HomeAPIView(APIView):
     def get(self, request):
-        user = request.user  # request.user는 User 객체
+        user = request.user
         accepted_requests = Request.objects.filter(
             (models.Q(sent_user=user) | models.Q(target_user=user)) & models.Q(is_accepted=True)
         )
-        schedules = FamilySchedule.objects.filter(fam_schedule_id__in=accepted_requests.values('fam_schedule_id'))
+        schedules = FamilySchedule.objects.filter(fam_schedule_id__in=accepted_requests.values('fam_schedule_id')).order_by('schedule_start_time')[:4]
         schedule_data = FamilyScheduleSerializer(schedules, many=True).data
-        
-        current_date = timezone.now().date()  # 현재 날짜를 가져옵니다.
-        print(f"Current date: {current_date}")
-        
+
         # user.family는 FamilyInfo 객체
         family_id = user.family_id
         family_members = User.objects.filter(family=family_id)
@@ -56,7 +53,7 @@ class OneWordAPIView(APIView):
     
 class ScheduleAPIView(APIView):
     def get(self, request):
-        user = request.user
+        user = request.user.user_id
         date = request.GET.get('date')
         
         if date:
@@ -75,7 +72,6 @@ class ScheduleAPIView(APIView):
         return Response({"schedule": serializer.data}, status=status.HTTP_200_OK)
     
     def post(self, request):
-        user = request.user
         serializer = PersonalScheduleSerializer(data=request.data, context = {'request':request})
         if serializer.is_valid():
             serializer.save()
@@ -85,8 +81,6 @@ class ScheduleAPIView(APIView):
 class ScheduleManageAPIView(APIView):
     def get(self, request, personal_schedule_id=None):
         user = request.user.user_id
-        print(user)
-        print(f"Personal Schedule ID: {personal_schedule_id}")
         if personal_schedule_id:
             # 특정 스케줄 조회
             try:
