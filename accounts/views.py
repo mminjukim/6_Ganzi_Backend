@@ -14,7 +14,7 @@ from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from .models import User
 from family.models import FamilyInfo
-from .serializers import UserSerializer
+from .serializers import UserSerializer, ProfileSerializer
 
 BASE_URL = 'http://127.0.0.1:8000/'
 KAKAO_CALLBACK_URI = BASE_URL + 'accounts/kakao/callback/'
@@ -329,3 +329,9 @@ class ProfileEditAPIView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class ProFileAPIView(APIView):
+    def get(self, request):
+        user = request.user
+        serializer = ProfileSerializer(user, context={"request": request})
+        return Response(serializer.data)
