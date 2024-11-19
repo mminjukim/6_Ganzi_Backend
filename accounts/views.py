@@ -12,7 +12,8 @@ from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.providers.kakao import views as kakao_view
 from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
-from .models import User
+from .models import *
+from sch_requests.models import *
 from family.models import FamilyInfo
 from .serializers import UserSerializer, ProfileSerializer
 
@@ -290,12 +291,15 @@ class KakaoSendMSGView(APIView):
             return Response({"error": "Failed to send message", "details": str(e)}, status=500)
 
 
-# 링크 접속 했을 때 ~
-## 등록 수정 합치는 것이 좋을듯 나중에 로그아웃하고 다시 들어왔을 때 ~
-# 프로필 등록
-class ProfileRegisterAPIView(APIView):
+# 프로필 등록/수정
+class ProfileEditAPIView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
+
+    def get(self, request):
+        user = User.objects.get(user_id=request.user.user_id)
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
 
     def patch(self, request):
         user = User.objects.get(user_id=request.user.user_id)
@@ -306,24 +310,6 @@ class ProfileRegisterAPIView(APIView):
             user.family = new_family
             user.save()
 
-        serializer = UserSerializer(user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-# 프로필 수정
-class ProfileEditAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication]
-
-    def get(self, request):
-        user = User.objects.get(user_id=request.user.user_id)
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
-    
-    def patch(self, request):
-        user = User.objects.get(user_id=request.user.user_id)
         serializer = UserSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()

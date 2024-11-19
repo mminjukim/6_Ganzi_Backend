@@ -9,8 +9,6 @@ urlpatterns = [
     path('kakao/login/finish/', views.KakaoLogin.as_view(), name='kakao_login_todjango'),
     path('kakao/logout/', views.KakaoLogoutView.as_view()),
     path('kakao/unlink/', views.KakaoUnlinkView.as_view()),
-    path('kakao/friends/', views.KakaoFriendsListView.as_view()),
-    path('profile/', views.ProfileRegisterAPIView.as_view()),
     path('myprofile/edit/', views.ProfileEditAPIView.as_view()),
     path('myprofile/', views.ProFileAPIView.as_view()),
 ]

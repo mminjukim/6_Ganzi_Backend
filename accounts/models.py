@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from family.models import FamilyInfo
+from sch_requests.models import Category
 from django.conf import settings
 
 # Create your models here.
@@ -59,6 +60,9 @@ class User(AbstractUser):
 class Badge(models.Model):
     badge_id = models.BigAutoField(primary_key=True)
     badge_name = models.CharField(max_length=20, default="")
+    badge_condition = models.IntegerField(default=0)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, null=True)
+
 
 class AcquiredBadge(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
