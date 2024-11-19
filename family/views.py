@@ -2,11 +2,11 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.utils import timezone
 from collections import defaultdict
+from datetime import date
 
 from accounts.models import User
-from sch_requests.models import Request, FamilyInfo
+from sch_requests.models import Request, FamilyInfo, FamilySchedule
 from .serializers import *
 
 # Create your views here.
@@ -29,12 +29,12 @@ class FamilyCalendarView(APIView):
             for req in requests:
                 fam_schedule = req.fam_schedule
 
-                if fam_schedule.schedule_start_time.date() == timezone.datetime(y, m, d).date():
+                if fam_schedule.schedule_start_time.date() == date(y, m, d):
                     if fam_schedule.fam_schedule_id not in schedules:
                         schedules[fam_schedule.fam_schedule_id]["category_name"] = fam_schedule.category.category_name
                         schedules[fam_schedule.fam_schedule_id]["schedule_title"] = fam_schedule.schedule_title
-                        schedules[fam_schedule.fam_schedule_id]["schedule_start_time"] = fam_schedule.schedule_start_time
-                        schedules[fam_schedule.fam_schedule_id]["schedule_end_time"] = fam_schedule.schedule_end_time
+                        schedules[fam_schedule.fam_schedule_id]["schedule_start_time"] = fam_schedule.schedule_start_time.strftime("%H:%M")
+                        schedules[fam_schedule.fam_schedule_id]["schedule_end_time"] = fam_schedule.schedule_end_time.strftime("%H:%M")
                         schedules[fam_schedule.fam_schedule_id]["schedule_memo"] = fam_schedule.schedule_memo
                     
                     schedules[fam_schedule.fam_schedule_id]["target_users"].append(member_img)
@@ -52,8 +52,25 @@ class AllIncomingRequestsView(APIView):
     def get(self, request):
         requests = Request.objects.filter(target_user=request.user, 
                                           is_accepted=False, is_checked=False).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True, context={'request': request}).data
-        return Response(requests_data, status=status.HTTP_200_OK)
+        req_data = []
+        i = 0
+        while i < requests.count():
+            req_id = requests[i].id
+            schedule = requests[i].fam_schedule
+            if schedule.is_daily:
+                req_id -= 6
+            elif schedule.is_weekly:
+                req_id -= 3
+            elif schedule.is_monthly:
+                req_id -= 11
+            elif schedule.is_yearly:
+                req_id -= 4
+            req = Request.objects.get(id=req_id)
+            req_data.append(RequestListSerializer(req, context={'request': request}).data)
+            i += (requests[i].id - req_id) + 1
+            if i == requests.count(): break
+        return Response(req_data, status=status.HTTP_200_OK)
+            
     
 # 받은 스케줄 상세 view
 class IncomingRequestView(APIView):
@@ -64,16 +81,46 @@ class IncomingRequestView(APIView):
     
     def post(self, request, id): # 받은 스케줄 수락
         incoming_request = Request.objects.get(id=id)
-        incoming_request.is_checked = True
-        incoming_request.is_accepted = True
-        incoming_request.save(update_fields=['is_checked', 'is_accepted'])
+        schedule = FamilySchedule.objects.get(fam_schedule_id=incoming_request.fam_schedule.fam_schedule_id)
+        i = id
+        repeat_cnt = id+1
+        if schedule.is_daily:
+            repeat_cnt = id+7
+        elif schedule.is_weekly:
+            repeat_cnt = id+4
+        elif schedule.is_monthly:
+            repeat_cnt = id+12
+        elif schedule.is_yearly:
+            repeat_cnt = id+5
+        while i < repeat_cnt:
+            req = Request.objects.get(id=i)
+            req.is_checked = True
+            req.is_accepted = True
+            req.save(update_fields=['is_checked', 'is_accepted'])
+            i += 1
+            if i == repeat_cnt: break
         return Response({'message':'스케줄이 확정되었습니다'}, status=status.HTTP_200_OK)
 
     def delete(self, request, id): # 받은 스케줄 거절
         incoming_request = Request.objects.get(id=id)
-        incoming_request.is_checked = True
-        incoming_request.is_accepted = False
-        incoming_request.save(update_fields=['is_checked', 'is_accepted'])
+        schedule = FamilySchedule.objects.get(fam_schedule_id=incoming_request.fam_schedule.fam_schedule_id)
+        i = id
+        repeat_cnt = id+1
+        if schedule.is_daily:
+            repeat_cnt = id+7
+        elif schedule.is_weekly:
+            repeat_cnt = id+4
+        elif schedule.is_monthly:
+            repeat_cnt = id+12
+        elif schedule.is_yearly:
+            repeat_cnt = id+5
+        while i < repeat_cnt:
+            req = Request.objects.get(id=i)
+            req.is_checked = True
+            req.is_accepted = False
+            req.save(update_fields=['is_checked', 'is_accepted'])
+            i += 1
+            if i == repeat_cnt: break
         return Response({'message':'거절한 스케줄로 이동되었습니다'}, status=status.HTTP_200_OK)
 
 
@@ -82,8 +129,24 @@ class AllDeclinedRequestsView(APIView):
     def get(self, request):
         requests = Request.objects.filter(target_user=request.user, 
                                           is_accepted=False, is_checked=True).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True, context={'request': request}).data
-        return Response(requests_data, status=status.HTTP_200_OK)
+        req_data = []
+        i = 0
+        while i < requests.count():
+            req_id = requests[i].id
+            schedule = requests[i].fam_schedule
+            if schedule.is_daily:
+                req_id -= 6
+            elif schedule.is_weekly:
+                req_id -= 3
+            elif schedule.is_monthly:
+                req_id -= 11
+            elif schedule.is_yearly:
+                req_id -= 4
+            req = Request.objects.get(id=req_id)
+            req_data.append(RequestListSerializer(req, context={'request': request}).data)
+            i += (requests[i].id - req_id) + 1
+            if i == requests.count(): break
+        return Response(req_data, status=status.HTTP_200_OK)
     
 # 거절 스케줄 상세 view
 class DeclinedRequestView(APIView):
@@ -94,22 +157,73 @@ class DeclinedRequestView(APIView):
     
     def post(self, request, id): # 거절 스케줄 다시 수락
         declined_request = Request.objects.get(id=id)
-        declined_request.is_accepted = True
-        declined_request.save(update_fields=['is_accepted'])
+        schedule = FamilySchedule.objects.get(fam_schedule_id=declined_request.fam_schedule.fam_schedule_id)
+        i = id
+        repeat_cnt = id+1
+        if schedule.is_daily:
+            repeat_cnt = id+7
+        elif schedule.is_weekly:
+            repeat_cnt = id+4
+        elif schedule.is_monthly:
+            repeat_cnt = id+12
+        elif schedule.is_yearly:
+            repeat_cnt = id+5
+        while i < repeat_cnt:
+            req = Request.objects.get(id=i)
+            req.is_accepted = True
+            req.save(update_fields=['is_accepted'])
+            i += 1
+            if i == repeat_cnt: break
         return Response({'message':'스케줄이 확정되었습니다'}, status=status.HTTP_200_OK)
 
     def delete(self, request, id): # 거절 스케줄 삭제 
         declined_request = Request.objects.get(id=id)
-        declined_request.delete()
+        schedule = FamilySchedule.objects.get(fam_schedule_id=declined_request.fam_schedule.fam_schedule_id)
+        i = id
+        repeat_cnt = id+1
+        if schedule.is_daily:
+            repeat_cnt = id+7
+        elif schedule.is_weekly:
+            repeat_cnt = id+4
+        elif schedule.is_monthly:
+            repeat_cnt = id+12
+        elif schedule.is_yearly:
+            repeat_cnt = id+5
+        while i < repeat_cnt:
+            req = Request.objects.get(id=i)
+            schedule = FamilySchedule.objects.get(fam_schedule_id=req.fam_schedule.fam_schedule_id)
+            req.delete()
+            schedule.delete()
+            i += 1
+            if i == repeat_cnt: break
         return Response({"message":"스케줄이 삭제되었습니다"}, status=status.HTTP_204_NO_CONTENT)
 
 
 # 보낸 스케줄 목록 view
 class AllOutgoingRequestsView(APIView):
     def get(self, request):
-        requests = Request.objects.filter(sent_user=request.user).order_by('-id')[:100]
-        requests_data = RequestListSerializer(requests, many=True, context={'request': request}).data
-        return Response(requests_data, status=status.HTTP_200_OK)
+        requests = Request.objects.filter(sent_user=request.user).order_by('-id')[:300]
+        req_data = []
+        i = 0
+        while i < requests.count():
+            req_id = requests[i].id
+            schedule = requests[i].fam_schedule
+            targets_cnt = Request.objects.filter(fam_schedule=requests[i].fam_schedule).count()
+            if schedule.is_daily:
+                req_id -= (7 * targets_cnt - 1)
+            elif schedule.is_weekly:
+                req_id -= (4 * targets_cnt - 1)
+            elif schedule.is_monthly:
+                req_id -= (12 * targets_cnt - 1)
+            elif schedule.is_yearly:
+                req_id -= (5 * targets_cnt - 1)
+            else: 
+                req_id -= (targets_cnt - 1)
+            req = Request.objects.get(id=req_id)
+            req_data.append(RequestListSerializer(req, context={'request': request}).data)
+            i += (requests[i].id - req_id) + 1
+            if i == requests.count(): break
+        return Response(req_data, status=status.HTTP_200_OK)
     
 # 보낸 스케줄 상세 view
 class OutgoingRequestView(APIView):
@@ -120,5 +234,24 @@ class OutgoingRequestView(APIView):
     
     def delete(self, request, id): # 보낸 스케줄 요청 취소 
         sent_request = Request.objects.get(id=id)
-        sent_request.delete()
+        schedule = FamilySchedule.objects.get(fam_schedule_id=sent_request.fam_schedule.fam_schedule_id)
+        targets_cnt = Request.objects.filter(fam_schedule=schedule).count()
+        i = id
+        if schedule.is_daily:
+            repeat_cnt = (7 * targets_cnt)
+        elif schedule.is_weekly:
+            repeat_cnt = (4 * targets_cnt)
+        elif schedule.is_monthly:
+            repeat_cnt = (12 * targets_cnt)
+        elif schedule.is_yearly:
+            repeat_cnt = (5 * targets_cnt)
+        else: 
+            repeat_cnt = 1
+        while i < id+repeat_cnt:
+            req = Request.objects.get(id=i)
+            schedule = FamilySchedule.objects.get(fam_schedule_id=req.fam_schedule.fam_schedule_id)
+            req.delete()
+            schedule.delete()
+            i += 1
+            if i == id+repeat_cnt: break
         return Response({"message":"요청이 취소되었습니다"}, status=status.HTTP_204_NO_CONTENT)
