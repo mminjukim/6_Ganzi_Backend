@@ -26,6 +26,13 @@ class UserSerializer(serializers.ModelSerializer):
         )
         return user
     
+class SimpleUserSerializer(serializers.ModelSerializer):
+    profile_img = serializers.ImageField(use_url=True, required=False)
+    class Meta:
+        model = User
+        fields = ['user_id', 'nickname', 'profile_img']
+
+    
 class BadgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Badge

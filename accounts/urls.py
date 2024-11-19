@@ -11,6 +11,7 @@ urlpatterns = [
     path('kakao/unlink/', views.KakaoUnlinkView.as_view()),
     #path('kakao/friends/', views.KakaoFriendsListView.as_view()),
     #path('kakao/friends/send/', views.KakaoSendMSGView.as_view()),
+    path('myprofile/register/', views.ProfileRegisterAPIView.as_view()),
     path('myprofile/edit/', views.ProfileEditAPIView.as_view()),
     path('myprofile/', views.ProFileAPIView.as_view()),
 ]

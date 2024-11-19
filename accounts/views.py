@@ -15,7 +15,7 @@ from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from .models import *
 from sch_requests.models import *
 from family.models import FamilyInfo
-from .serializers import UserSerializer, ProfileSerializer
+from .serializers import UserSerializer, ProfileSerializer, SimpleUserSerializer
 
 BASE_URL = 'http://127.0.0.1:8000/'
 KAKAO_CALLBACK_URI = BASE_URL + 'accounts/kakao/callback/'
@@ -212,7 +212,12 @@ class KakaoUnlinkView(APIView):
                 # 해당 사용자의 SocialAccount를 찾아 삭제
                 social_account = SocialAccount.objects.get(user=request.user, provider='kakao')
                 social_account.delete()
-                
+                # 해당 사용자의 가족 수 -= 1
+                user_family = request.user.family
+                user_family.fam_num -= 1
+                user_family.save(update_fields=['fam_num'])
+                if user_family.fam_num == 0:
+                    user_family.delete()
                 # 서버의 사용자 정보도 삭제
                 request.user.delete()
 
@@ -291,30 +296,52 @@ class KakaoSendMSGView(APIView):
             return Response({"error": "Failed to send message", "details": str(e)}, status=500)
 
 
-# 프로필 등록/수정
+# 프로필 등록
+class ProfileRegisterAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def patch(self, request):
+        user = User.objects.get(user_id=request.user.user_id)
+
+        if user.family is None:
+            if request.data.get('invited_user') is None or request.data.get('invited_user') == '':
+                # 새로운 FamilyInfo 생성
+                new_family = FamilyInfo.objects.create(fam_num=1)
+                user.family = new_family
+                user.save()
+            else:
+                invited_user = User.objects.get(email=request.data.get('invited_user'))
+                user.family = invited_user.family
+                user.save()
+                user.family.fam_num += 1
+                user.family.save(update_fields=['fam_num'])
+
+        serializer = UserSerializer(user, data=request.data, context={'request': request}, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+# 프로필 수정 
 class ProfileEditAPIView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
 
     def get(self, request):
         user = User.objects.get(user_id=request.user.user_id)
-        serializer = UserSerializer(user)
+        serializer = SimpleUserSerializer(user, context={'request': request})
         return Response(serializer.data)
 
     def patch(self, request):
         user = User.objects.get(user_id=request.user.user_id)
-
-        if user.family is None:
-            # 새로운 FamilyInfo 생성
-            new_family = FamilyInfo.objects.create(fam_num=1)
-            user.family = new_family
-            user.save()
-
-        serializer = UserSerializer(user, data=request.data, partial=True)
+        serializer = SimpleUserSerializer(user, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
 class ProFileAPIView(APIView):
     def get(self, request):
