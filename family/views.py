@@ -5,7 +5,7 @@ from rest_framework import status
 from collections import defaultdict
 from datetime import date
 
-from accounts.models import User
+from accounts.models import *
 from sch_requests.models import Request, FamilyInfo, FamilySchedule
 from .serializers import *
 
@@ -99,7 +99,71 @@ class IncomingRequestView(APIView):
             req.save(update_fields=['is_checked', 'is_accepted'])
             i += 1
             if i == repeat_cnt: break
+
+        self.grant_badge(request.user)
+
         return Response({'message':'스케줄이 확정되었습니다'}, status=status.HTTP_200_OK)
+    
+    def grant_badge(self, user):
+        family_id = user.family
+
+        if not family_id:
+            return
+
+        # 수락한 Request
+        requests = Request.objects.filter(
+            target_user=user,
+            is_accepted=True,
+            is_checked=True
+        ).select_related('fam_schedule__category')
+
+        # Category별 Request 분류
+        categorized_requests = defaultdict(int)
+
+        for req in requests:
+            category_name = req.fam_schedule.category.category_name
+            categorized_requests[category_name] += 1
+        print(categorized_requests)
+
+        badges = Badge.objects.all()
+
+        # 배지 부여 로직
+        for badge in badges:
+            category_name = badge.category.category_name
+            if category_name in categorized_requests:
+                # 최소 조건을 만족하는 배지 확인
+                if categorized_requests[category_name] >= badge.badge_condition:
+                    # 같은 카테고리에서 조건을 만족한 배지들
+                    existing_badges = AcquiredBadge.objects.filter(
+                        user=user,
+                        family=family_id,
+                        badge__category=badge.category
+                    )
+
+                    # 같은 카테고리에 대한 배지가 있을 경우
+                    if existing_badges.exists():
+                        # badge_condition 값이 가장 큰 배지가 첫 번째 값
+                        highest_existing_badge = existing_badges.order_by('-badge__badge_condition').first()
+
+                        if highest_existing_badge.badge.badge_condition < badge.badge_condition:
+                            # 가장 높은 배지가 아니면 삭제하고 새로운 배지 저장
+                            existing_badges.delete()
+
+                            # 새 배지 저장
+                            acquired_badge = AcquiredBadge(
+                                user=user,
+                                badge=badge,
+                                family=family_id
+                            )
+                            acquired_badge.save()
+                    else:
+                        # 기존 배지가 없으면 바로 저장
+                        acquired_badge = AcquiredBadge(
+                            user=user,
+                            badge=badge,
+                            family=family_id
+                        )
+                        acquired_badge.save()
 
     def delete(self, request, id): # 받은 스케줄 거절
         incoming_request = Request.objects.get(id=id)
