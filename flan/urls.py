@@ -12,6 +12,7 @@ urlpatterns = [
     path('family/', include('family.urls')),
     path('', include('personal.urls')),
     path('sch_requests/', include('sch_requests.urls')),
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+] 
 
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
