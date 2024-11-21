@@ -11,9 +11,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = local_settings.SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['3.132.247.151', 'ec2-3-132-247-151.us-east-2.compute.amazonaws.com', '127.0.0.1']
+ALLOWED_HOSTS = ['3.34.78.66', 'ec2-3-34-78-66.ap-northeast-2.compute.amazonaws.com', '127.0.0.1']
 
 AUTH_USER_MODEL = 'accounts.User'
 
