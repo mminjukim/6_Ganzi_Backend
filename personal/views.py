@@ -34,7 +34,7 @@ class HomeAPIView(APIView):
         ).data
         
         ads = Place.objects.order_by("?")[:3]
-        ad_data = AdSerializer(ads, many=True).data
+        ad_data = AdSerializer(ads, many=True, context={'request': request}).data
 
         return Response({
             "schedule": schedule_data,
