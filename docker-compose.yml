@@ -10,7 +10,7 @@ services:
     volumes:
       - .:/app
       - ./media:/app/media
-      #- ./static:/app/static
+      - ./static:/app/static
     networks:
       - server
 
