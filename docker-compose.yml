@@ -10,7 +10,7 @@ services:
     volumes:
       - .:/app
       - ./media:/app/media
-      - ./staticfiles:/app/static
+      - ./static:/home/ubuntu/6_Ganzi_Backend/static/
     networks:
       - server
 
