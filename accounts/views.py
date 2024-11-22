@@ -1,6 +1,7 @@
+from django.utils import timezone
 import requests
 from django.shortcuts import redirect
-from django.conf import settings
+from flan import settings
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.response import Response
@@ -8,7 +9,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
-from allauth.socialaccount.models import SocialAccount
+from allauth.socialaccount.models import SocialAccount,SocialLogin
 from allauth.socialaccount.providers.kakao import views as kakao_view
 from dj_rest_auth.registration.views import SocialLoginView
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
@@ -21,11 +22,6 @@ BASE_URL = 'http://flan.klr.kr/'
 KAKAO_CALLBACK_URI = BASE_URL + 'accounts/kakao/callback/'
 
 # JWT 토큰 생성 함수
-def create_jwt_token(user):
-    refresh = RefreshToken.for_user(user)
-    access_token = str(refresh.access_token)
-    refresh_token = str(refresh)
-    return access_token, refresh_token
 
 class MypageUserDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -61,100 +57,103 @@ def kakao_login(request):
         f"https://kauth.kakao.com/oauth/authorize?client_id={rest_api_key}&redirect_uri={KAKAO_CALLBACK_URI}&response_type=code&scope={scopes}"
     )
 
-# 카카오 로그인 콜백
 def kakao_callback(request):
     rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
     client_secret = getattr(settings, 'KAKAO_CLIENT_SECRET_KEY')
     code = request.GET.get('code')
-    redirect_uri = "http://localhost:5173/kakaologinredirection"
+    redirect_uri = "http://localhost:5173/kakaoLogin"
 
-    # 액세스 토큰 요청
+    if not code:
+        return JsonResponse({'err_msg': 'Authorization code is missing'}, status=400)
+
+    # Access Token 요청
     token_req = requests.post(
-        f"https://kauth.kakao.com/oauth/token",
+        "https://kauth.kakao.com/oauth/token",
         data={
             "grant_type": "authorization_code",
             "client_id": rest_api_key,
-            "redirect_uri": redirect_uri,
+            "redirect_uri": redirect_uri,  # 수정된 redirect_uri
             "code": code,
             "client_secret": client_secret,
         }
     )
     token_req_json = token_req.json()
-    access_token = token_req_json.get('access_token')
-    print(access_token)
 
+    if token_req.status_code != 200:
+        print(f"Kakao Token Request Failed: {token_req.status_code}, {token_req_json}")
+        return JsonResponse({'err_msg': 'Failed to get access token', 'details': token_req_json}, status=400)
+
+    access_token = token_req_json.get('access_token')
     if not access_token:
-        return JsonResponse({'err_msg': 'Failed to get access token'}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({'err_msg': 'Access token is missing'}, status=400)
 
     # 사용자 정보 요청
     profile_request = requests.get(
         "https://kapi.kakao.com/v2/user/me",
-        headers={"Authorization": f"Bearer {access_token}"},
-        params ={
-            "property_keys" : '["kakao_account.email"]'
-        }
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
     )
     profile_json = profile_request.json()
-    print(profile_json)
 
-    # 이메일 확인
+    if profile_request.status_code != 200:
+        print(f"Profile Request Failed: {profile_request.status_code}, {profile_json}")
+        return JsonResponse({'err_msg': 'Failed to fetch user profile', 'details': profile_json}, status=400)
+
     kakao_account = profile_json.get('kakao_account', {})
-    email = kakao_account.get('email', None)
-    #if kakao_account.get('is_email_needs_agreement', False):
-    #    return JsonResponse({'err_msg': 'Email permission not granted'}, status=status.HTTP_400_BAD_REQUEST)
-
-    #if not email:
-    #    email = f"{profile_json.get('id')}@kakao.com"
-
+    email = kakao_account.get('email')
     kakao_uid = str(profile_json.get('id'))
+
+    if not email:
+        return JsonResponse({'err_msg': 'Email not available'}, status=400)
+
+    # 사용자 생성 및 JWT 발급
     try:
-        # 이미 소셜 계정이 있을 경우
-        social_user = SocialAccount.objects.get(provider='kakao', uid=kakao_uid)
-        user = social_user.user
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        user = User.objects.create(email=email)
+        SocialAccount.objects.create(
+            user=user,
+            provider='kakao',
+            uid=kakao_uid,
+            extra_data=profile_json
+        )
 
-        # kakao_access_token 필드 업데이트
-        if hasattr(user, 'kakao_access_token'):
-            user.kakao_access_token = access_token
-            user.save()
+    access_token, refresh_token = create_jwt_token(user)
+    response = JsonResponse({
+        'message': 'Login successful',
+        'access_token': access_token,
+        'refresh_token': refresh_token
+    })
+    response["Authorization"] = f'Bearer {access_token}'
+    response["Refresh-Token"] = refresh_token
+    return response
 
-        # JWT 토큰 발급
-        access_token, refresh_token = create_jwt_token(user)
-        response = JsonResponse({
-            'message': 'Login successful',
-            'access_token': access_token,
-            'refresh_token': refresh_token,
-        })
-        response["Authorization"] = f'Bearer {access_token}'
-        response["Refresh-Token"] = refresh_token
-
-        return response
-
+    
+def merge_social_account(user, social_account):
+    try:
+        # 기존 계정을 검색
+        existing_account = SocialAccount.objects.get(user=user, provider='kakao')
+        # 기존 계정 정보 업데이트
+        existing_account.uid = social_account.uid
+        existing_account.extra_data = social_account.extra_data
+        existing_account.save()
     except SocialAccount.DoesNotExist:
-        # SocialAccount 새로 생성
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            # User 새로 생성
-            user = User.objects.create(email=email)
+        # 계정이 없을 경우 새 계정을 생성
+        SocialAccount.objects.create(
+            user=user,
+            provider='kakao',
+            uid=social_account.uid,
+            extra_data=social_account.extra_data,
+        )
 
-        # SocialAccount 생성
-        SocialAccount.objects.create(user=user, provider='kakao', uid=kakao_uid, extra_data=profile_json)
 
-        # kakao_access_token 필드에 저장
-        user.kakao_access_token = access_token
-        user.save()
-
-        # JWT 토큰 발급
-        access_token, refresh_token = create_jwt_token(user)
-        response = JsonResponse({
-            'message': 'User created and logged in',
-            'access_token': access_token,
-            'refresh_token': refresh_token,
-        })
-        response["Authorization"] = f'Bearer {access_token}'
-        response["Refresh-Token"] = refresh_token
-
-        return response
+def create_jwt_token(user):
+    refresh = RefreshToken.for_user(user)
+    access_token = str(refresh.access_token)
+    refresh_token = str(refresh)
+    return access_token, refresh_token
 
 class TokenRefreshAPIView(APIView):
     permission_classes = [AllowAny]
