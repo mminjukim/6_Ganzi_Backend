@@ -13,7 +13,7 @@ SECRET_KEY = local_settings.SECRET_KEY
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['3.128.7.59', 'flan.klr.kr', '127.0.0.1']
+ALLOWED_HOSTS = ['3.132.157.244', 'flan.klr.kr', '127.0.0.1']
 
 AUTH_USER_MODEL = 'accounts.User'
 

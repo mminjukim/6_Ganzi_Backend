@@ -66,6 +66,7 @@ def kakao_callback(request):
     rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
     client_secret = getattr(settings, 'KAKAO_CLIENT_SECRET_KEY')
     code = request.GET.get('code')
+    redirect_uri = "http://localhost:5173/kakaologinredirection/"
 
     # 액세스 토큰 요청
     token_req = requests.post(
@@ -73,7 +74,7 @@ def kakao_callback(request):
         data={
             "grant_type": "authorization_code",
             "client_id": rest_api_key,
-            "redirect_uri": KAKAO_CALLBACK_URI,
+            "redirect_uri": redirect_uri,
             "code": code,
             "client_secret": client_secret,
         }
@@ -123,6 +124,8 @@ def kakao_callback(request):
             'access_token': access_token,
             'refresh_token': refresh_token,
         })
+        response["Authorization"] = f'Bearer {access_token}'
+        response["Refresh-Token"] = refresh_token
 
         return response
 
@@ -148,6 +151,8 @@ def kakao_callback(request):
             'access_token': access_token,
             'refresh_token': refresh_token,
         })
+        response["Authorization"] = f'Bearer {access_token}'
+        response["Refresh-Token"] = refresh_token
 
         return response
 
