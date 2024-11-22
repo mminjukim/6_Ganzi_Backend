@@ -22,7 +22,7 @@ services:
       - ./cert/certbot/conf:/etc/letsencrypt
       - ./cert/certbot/www:/var/www/certbot
       - ./media:/media
-      - ./static:/home/ubuntu/6_Ganzi_Backend/static/
+      - ./static:/static
     restart: always
     ports:
       - "80:80"
