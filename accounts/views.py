@@ -17,7 +17,7 @@ from sch_requests.models import *
 from family.models import FamilyInfo
 from .serializers import UserSerializer, ProfileSerializer, SimpleUserSerializer
 
-BASE_URL = 'http://3.34.78.66/'
+BASE_URL = 'http://3.34.78.66:8000/'
 KAKAO_CALLBACK_URI = BASE_URL + 'accounts/kakao/callback/'
 
 # JWT 토큰 생성 함수
@@ -66,17 +66,17 @@ def kakao_callback(request):
     rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
     client_secret = getattr(settings, 'KAKAO_CLIENT_SECRET_KEY')
     code = request.GET.get('code')
-    redirect_uri = 'http://localhost:5173/accounts/kakao/callback/'
+    redirect_uri = "http://localhost:5173/kakaoLogin"
 
     # 액세스 토큰 요청
     token_req = requests.post(
         f"https://kauth.kakao.com/oauth/token",
         data={
-            "grant_type": "authorization_code",
             "client_id": rest_api_key,
-            "redirect_uri": redirect_uri, 
-            "code": code,
             "client_secret": client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
         }
     )
     token_req_json = token_req.json()
@@ -124,20 +124,11 @@ def kakao_callback(request):
             'access_token': access_token,
             'refresh_token': refresh_token,
         })
-        response["Authorization"] = f'Bearer {access_token}'
-        response["Refresh-Token"] = refresh_token
 
         return response
 
     except SocialAccount.DoesNotExist:
-        # SocialAccount 새로 생성
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            # User 새로 생성
-            user = User.objects.create(email=email)
-
-        # SocialAccount 생성
+        user = User.objects.create(email=email)
         SocialAccount.objects.create(user=user, provider='kakao', uid=kakao_uid, extra_data=profile_json)
 
         # kakao_access_token 필드에 저장
@@ -146,14 +137,9 @@ def kakao_callback(request):
 
         # JWT 토큰 발급
         access_token, refresh_token = create_jwt_token(user)
-        response = JsonResponse({
-            'message': 'User created and logged in',
-            'access_token': access_token,
-            'refresh_token': refresh_token,
-        })
-        response["Authorization"] = f'Bearer {access_token}'
-        response["Refresh-Token"] = refresh_token
-        
+        response = JsonResponse({'message': 'User created and logged in'})
+        response['Authorization'] = f'Bearer {access_token}'
+        response['Refresh-Token'] = refresh_token
         return response
 
 class TokenRefreshAPIView(APIView):
