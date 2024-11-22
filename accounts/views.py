@@ -124,6 +124,8 @@ def kakao_callback(request):
             'access_token': access_token,
             'refresh_token': refresh_token,
         })
+        response["Authorization"] = f'Bearer {access_token}'
+        response["Refresh-Token"] = refresh_token
 
         return response
 
@@ -149,7 +151,9 @@ def kakao_callback(request):
             'access_token': access_token,
             'refresh_token': refresh_token,
         })
-
+        response["Authorization"] = f'Bearer {access_token}'
+        response["Refresh-Token"] = refresh_token
+        
         return response
 
 class TokenRefreshAPIView(APIView):
