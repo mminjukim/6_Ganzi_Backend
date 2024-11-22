@@ -1,6 +1,6 @@
 FROM python:3.10.12
 
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 
 RUN apt-get -y update
 RUN apt-get -y install vim
