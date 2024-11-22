@@ -66,7 +66,7 @@ def kakao_callback(request):
     rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
     client_secret = getattr(settings, 'KAKAO_CLIENT_SECRET_KEY')
     code = request.GET.get('code')
-    redirect_uri = "http://localhost:5173/kakaologinredirection"
+    redirect_uri = 'http://localhost:5173/accounts/kakao/callback/'
 
     # 액세스 토큰 요청
     token_req = requests.post(
