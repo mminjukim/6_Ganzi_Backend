@@ -10,7 +10,7 @@ services:
     volumes:
       - .:/app
       - ./media:/app/media
-      - ./static:/home/ubuntu/6_Ganzi_Backend/static/
+      - ./static:/app/static
     networks:
       - server
 
@@ -22,7 +22,7 @@ services:
       - ./cert/certbot/conf:/etc/letsencrypt
       - ./cert/certbot/www:/var/www/certbot
       - ./media:/media
-      - ./static:/static
+      - ./static:/home/ubuntu/6_Ganzi_Backend/static/
     restart: always
     ports:
       - "80:80"
