@@ -1,7 +1,7 @@
 from django.utils import timezone
 import requests
 from django.shortcuts import redirect
-from django.conf import settings
+from flan import settings
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.response import Response
@@ -63,67 +63,55 @@ def kakao_callback(request):
     code = request.GET.get('code')
     redirect_uri = "http://localhost:5173/kakaoLogin"
 
-    # 액세스 토큰 요청
+    if not code:
+        return JsonResponse({'err_msg': 'Authorization code is missing'}, status=400)
+
+    # Access Token 요청
     token_req = requests.post(
         "https://kauth.kakao.com/oauth/token",
         data={
             "grant_type": "authorization_code",
             "client_id": rest_api_key,
-            "redirect_uri": redirect_uri,
+            "redirect_uri": redirect_uri,  # 수정된 redirect_uri
             "code": code,
             "client_secret": client_secret,
         }
     )
     token_req_json = token_req.json()
-    access_token = token_req_json.get('access_token')
 
+    if token_req.status_code != 200:
+        print(f"Kakao Token Request Failed: {token_req.status_code}, {token_req_json}")
+        return JsonResponse({'err_msg': 'Failed to get access token', 'details': token_req_json}, status=400)
+
+    access_token = token_req_json.get('access_token')
     if not access_token:
-        return JsonResponse({'err_msg': 'Failed to get access token'}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({'err_msg': 'Access token is missing'}, status=400)
 
     # 사용자 정보 요청
     profile_request = requests.get(
         "https://kapi.kakao.com/v2/user/me",
-        headers={"Authorization": f"Bearer {access_token}"},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
     )
     profile_json = profile_request.json()
+
+    if profile_request.status_code != 200:
+        print(f"Profile Request Failed: {profile_request.status_code}, {profile_json}")
+        return JsonResponse({'err_msg': 'Failed to fetch user profile', 'details': profile_json}, status=400)
+
     kakao_account = profile_json.get('kakao_account', {})
-    email = kakao_account.get('email', None)
+    email = kakao_account.get('email')
     kakao_uid = str(profile_json.get('id'))
 
     if not email:
-        return JsonResponse({'err_msg': 'Email not available'}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({'err_msg': 'Email not available'}, status=400)
 
+    # 사용자 생성 및 JWT 발급
     try:
         user = User.objects.get(email=email)
-        try:
-            social_user = SocialAccount.objects.get(user=user, provider='kakao', uid=kakao_uid)
-
-            if social_user.provider != 'kakao':  # 'google'이 아니라 'kakao'로 비교
-                return JsonResponse({'err_msg': 'no matching social type'}, status=status.HTTP_400_BAD_REQUEST)
-
-        except SocialAccount.DoesNotExist:
-            # 소셜 계정이 없을 경우 생성
-            social_user = SocialAccount.objects.create(
-                user=user,
-                provider='kakao',
-                uid=kakao_uid,
-                extra_data=profile_json
-            )
-
-        # JWT 토큰 생성
-        access_token, refresh_token = create_jwt_token(user)
-
-        response = JsonResponse({
-            'message': 'Login successful',
-            'access_token': access_token,
-            'refresh_token': refresh_token
-        })
-        response["Authorization"] = f'Bearer {access_token}'
-        response["Refresh-Token"] = refresh_token
-        return response
-
     except User.DoesNotExist:
-        # 새 사용자 생성
         user = User.objects.create(email=email)
         SocialAccount.objects.create(
             user=user,
@@ -132,17 +120,15 @@ def kakao_callback(request):
             extra_data=profile_json
         )
 
-        # JWT 토큰 생성
-        access_token, refresh_token = create_jwt_token(user)
-
-        response = JsonResponse({
-            'message': 'User created and logged in',
-            'access_token': access_token,
-            'refresh_token': refresh_token
-        })
-        response["Authorization"] = f'Bearer {access_token}'
-        response["Refresh-Token"] = refresh_token
-        return response
+    access_token, refresh_token = create_jwt_token(user)
+    response = JsonResponse({
+        'message': 'Login successful',
+        'access_token': access_token,
+        'refresh_token': refresh_token
+    })
+    response["Authorization"] = f'Bearer {access_token}'
+    response["Refresh-Token"] = refresh_token
+    return response
 
     
 def merge_social_account(user, social_account):
