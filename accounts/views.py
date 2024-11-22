@@ -1,25 +1,27 @@
 from django.utils import timezone
 import requests
 from django.shortcuts import redirect
-from flan import settings
+from django.conf import settings
 from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.response import Response
+from dj_rest_auth.registration.views import SocialLoginView
+from allauth.socialaccount.providers.google import views as google_view
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from rest_framework.views import APIView
+from .models import User
+from .serializers import UserSerializer
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
-from allauth.socialaccount.models import SocialAccount,SocialLogin
-from allauth.socialaccount.providers.kakao import views as kakao_view
-from dj_rest_auth.registration.views import SocialLoginView
-from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from allauth.socialaccount.models import SocialAccount, SocialLogin
 from .models import *
 from sch_requests.models import *
 from family.models import FamilyInfo
 from .serializers import UserSerializer, ProfileSerializer, SimpleUserSerializer
 
 BASE_URL = 'http://127.0.0.1:8000/'
-KAKAO_CALLBACK_URI = BASE_URL + 'accounts/kakao/callback/'
+GOOGLE_CALLBACK_URI = BASE_URL + 'accounts/google/callback/'
 
 # JWT 토큰 생성 함수
 
@@ -50,104 +52,94 @@ class InfoUserDetailAPIView(APIView):
         return Response(serializer.data)
 
 # 카카오 로그인 URL로 리다이렉션
-def kakao_login(request):
-    rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
-    scopes = "account_email friends talk_message"
-    return redirect(
-        f"https://kauth.kakao.com/oauth/authorize?client_id={rest_api_key}&redirect_uri={KAKAO_CALLBACK_URI}&response_type=code&scope={scopes}"
-    )
+def google_login(request):
+    scope = "https://www.googleapis.com/auth/userinfo.email"
+    client_id = getattr(settings, "GOOGLE_CLIENT_ID")
+    return redirect(f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&response_type=code&redirect_uri={GOOGLE_CALLBACK_URI}&scope={scope}")
 
-def kakao_callback(request):
-    rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
-    client_secret = getattr(settings, 'KAKAO_CLIENT_SECRET_KEY')
+def google_callback(request):
+    state = 'random'
+    client_id = getattr(settings, "GOOGLE_CLIENT_ID")
+    client_secret = getattr(settings, "GOOGLE_SECRET")
     code = request.GET.get('code')
-    redirect_uri = "http://localhost:5173/kakaoLogin"
-
-    if not code:
-        return JsonResponse({'err_msg': 'Authorization code is missing'}, status=400)
-
-    # Access Token 요청
+    redirect_uri = "http://localhost:5173/googleLogin"
+    # 액세스 토큰 요청
     token_req = requests.post(
-        "https://kauth.kakao.com/oauth/token",
+        f"https://oauth2.googleapis.com/token",
         data={
-            "grant_type": "authorization_code",
-            "client_id": rest_api_key,
-            "redirect_uri": redirect_uri,  # 수정된 redirect_uri
-            "code": code,
+            "client_id": client_id,
             "client_secret": client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+            "state": state
         }
     )
     token_req_json = token_req.json()
-
-    if token_req.status_code != 200:
-        print(f"Kakao Token Request Failed: {token_req.status_code}, {token_req_json}")
-        return JsonResponse({'err_msg': 'Failed to get access token', 'details': token_req_json}, status=400)
-
     access_token = token_req_json.get('access_token')
-    if not access_token:
-        return JsonResponse({'err_msg': 'Access token is missing'}, status=400)
-
-    # 사용자 정보 요청
-    profile_request = requests.get(
-        "https://kapi.kakao.com/v2/user/me",
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json",
-        },
+    
+    # 구글 API에서 이메일 정보 요청
+    email_req = requests.get(
+        f"https://www.googleapis.com/oauth2/v1/userinfo?access_token={access_token}"
     )
-    profile_json = profile_request.json()
-
-    if profile_request.status_code != 200:
-        print(f"Profile Request Failed: {profile_request.status_code}, {profile_json}")
-        return JsonResponse({'err_msg': 'Failed to fetch user profile', 'details': profile_json}, status=400)
-
-    kakao_account = profile_json.get('kakao_account', {})
-    email = kakao_account.get('email')
-    kakao_uid = str(profile_json.get('id'))
-
-    if not email:
-        return JsonResponse({'err_msg': 'Email not available'}, status=400)
-
-    # 사용자 생성 및 JWT 발급
+    email_req_status = email_req.status_code
+    if email_req_status != 200:
+        return JsonResponse({'err_msg': 'failed to get email'}, status=status.HTTP_400_BAD_REQUEST)
+    email_req_json = email_req.json()
+    email = email_req_json.get('email')
+    
+    # 이메일로 유저 확인
     try:
         user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        user = User.objects.create(email=email)
-        SocialAccount.objects.create(
-            user=user,
-            provider='kakao',
-            uid=kakao_uid,
-            extra_data=profile_json
-        )
+        social_login = SocialLogin(account=SocialAccount(user=user, provider='google', uid=email))
 
-    access_token, refresh_token = create_jwt_token(user)
-    response = JsonResponse({
-        'message': 'Login successful',
-        'access_token': access_token,
-        'refresh_token': refresh_token
-    })
-    response["Authorization"] = f'Bearer {access_token}'
-    response["Refresh-Token"] = refresh_token
-    return response
+        merge_social_account(user, social_login)
+        
+        social_user = SocialAccount.objects.get(user=user)
+        
+        if social_user is None:
+            return JsonResponse({'err_msg': 'email exists but not social user'}, status=status.HTTP_400_BAD_REQUEST)
+        if social_user.provider != 'google':
+            return JsonResponse({'err_msg': 'no matching social type'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 이미 로그인된 유저인 경우 JWT 토큰 발급
+        access_token, refresh_token = create_jwt_token(user)  # JWT 토큰 생성 함수
 
+        user.last_login = timezone.now()  # 여기서 last_login을 갱신
+        user.save()  
+
+        response = JsonResponse({
+            'message': 'Login successful',
+            'access_token':access_token,
+            'refresh_token':refresh_token
+        })
+
+        response["Authorization"] = f'Bearer {access_token}'
+        response["Refresh-Token"] = refresh_token
+
+        return response
     
-def merge_social_account(user, social_account):
-    try:
-        # 기존 계정을 검색
-        existing_account = SocialAccount.objects.get(user=user, provider='kakao')
-        # 기존 계정 정보 업데이트
-        existing_account.uid = social_account.uid
-        existing_account.extra_data = social_account.extra_data
-        existing_account.save()
-    except SocialAccount.DoesNotExist:
-        # 계정이 없을 경우 새 계정을 생성
-        SocialAccount.objects.create(
-            user=user,
-            provider='kakao',
-            uid=social_account.uid,
-            extra_data=social_account.extra_data,
-        )
+    except User.DoesNotExist:
+        # 신규 유저의 경우
+        user = User.objects.create(email=email)
+        social_user = SocialAccount.objects.create(user=user, provider='google', extra_data=email_req_json)
+        
+        # 신규 유저인 경우 JWT 토큰 발급
+        access_token, refresh_token = create_jwt_token(user)  # JWT 토큰 생성 함수
+        response = JsonResponse({'message': 'User created and logged in'})
+        response['Authorization'] = f'Bearer {access_token}'
+        response['Refresh-Token'] = refresh_token
+        return response
 
+def merge_social_account(user, social_login):
+    try:
+        existing_account = SocialAccount.objects.get(user=user, provider='google')
+        if existing_account:
+            # 기존 계정에 병합 처리
+            existing_account.uid = social_login.account.uid
+            existing_account.save()
+    except SocialAccount.DoesNotExist:
+        social_login.account.save()
 
 def create_jwt_token(user):
     refresh = RefreshToken.for_user(user)
@@ -155,82 +147,65 @@ def create_jwt_token(user):
     refresh_token = str(refresh)
     return access_token, refresh_token
 
-class TokenRefreshAPIView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        refresh_token = request.data.get('refresh_token')
-        
-        if not refresh_token:
-            return Response({'message': 'No refresh token'}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        try:
-            refresh = RefreshToken(refresh_token)
-            access_token = str(refresh.access_token)
-        except Exception as e:
-            return Response({'message': f'Invalid token: {str(e)}'}, status=status.HTTP_401_UNAUTHORIZED)
-        return Response({'access_token': access_token}, status=status.HTTP_200_OK)
-
-class KakaoLogin(SocialLoginView):
-    adapter_class = kakao_view.KakaoOAuth2Adapter
+class GoogleLogin(SocialLoginView):
+    adapter_class = google_view.GoogleOAuth2Adapter
+    callback_url = GOOGLE_CALLBACK_URI
     client_class = OAuth2Client
-    callback_url = KAKAO_CALLBACK_URI
 
-# 카카오 로그아웃
-class KakaoLogoutView(APIView):
+class GoogleLogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        access_token = request.user.kakao_access_token
-        
-        logout_request = requests.post(
-            "https://kapi.kakao.com/v1/user/logout",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-        logout_json = logout_request.json()
-        
-        if logout_request.status_code == 200:
-            return Response({"message": "Successfully logged out from Kakao"}, status=200)
+        # 사용자의 Google Access Token 가져오기
+        access_token = request.user.google_access_token
+
+        # Google 토큰 취소 요청
+        revoke_url = "https://oauth2.googleapis.com/revoke"
+        params = {"token": access_token}
+        revoke_request = requests.post(revoke_url, params=params)
+
+        if revoke_request.status_code == 200:
+            return Response({"message": "Successfully logged out from Google"}, status=200)
         else:
-            return Response({"error": logout_json.get('msg', 'Logout failed')}, status=logout_request.status_code)
+            return Response({"error": "Failed to revoke access token"}, status=revoke_request.status_code)
 
-# 회원탈퇴
-class KakaoUnlinkView(APIView):
+
+# Google 계정 연결 해제 (회원탈퇴)
+class GoogleUnlinkView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # 인증된 사용자의 카카오 액세스 토큰 가져오기
-        access_token = request.user.kakao_access_token
-        
-        # 카카오 연결 끊기 요청
-        unlink_request = requests.post(
-            "https://kapi.kakao.com/v1/user/unlink",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-        
-        unlink_json = unlink_request.json()
-        
+        # 사용자의 Google Access Token 가져오기
+        access_token = request.user.google_access_token
+
+        # Google 연결 해제 요청 (Google 계정 연결 끊기)
+        unlink_url = "https://accounts.google.com/o/oauth2/revoke"
+        params = {"token": access_token}
+        unlink_request = requests.post(unlink_url, params=params)
+
         if unlink_request.status_code == 200:
-            # 카카오와 연결이 끊어졌다면, 서버에서 사용자 정보 삭제
             try:
-                # 해당 사용자의 SocialAccount를 찾아 삭제
-                social_account = SocialAccount.objects.get(user=request.user, provider='kakao')
+                # 서버에서 사용자 정보 삭제
+                # SocialAccount에서 해당 사용자 삭제
+                social_account = SocialAccount.objects.get(user=request.user, provider='google')
                 social_account.delete()
-                # 해당 사용자의 가족 수 -= 1
-                user_family = request.user.family
-                user_family.fam_num -= 1
-                user_family.save(update_fields=['fam_num'])
-                if user_family.fam_num == 0:
-                    user_family.delete()
-                # 서버의 사용자 정보도 삭제
+
+                # 사용자와 관련된 추가 데이터 정리
+                if request.user.family:
+                    user_family = request.user.family
+                    user_family.fam_num -= 1
+                    user_family.save(update_fields=['fam_num'])
+                    if user_family.fam_num == 0:
+                        user_family.delete()
+
+                # 사용자 삭제
                 request.user.delete()
 
-                return Response({"message": "Successfully disconnected from Kakao and deleted user from the server"}, status=200)
+                return Response({"message": "Successfully unlinked Google account and deleted user"}, status=200)
             except SocialAccount.DoesNotExist:
-                return Response({"error": "Kakao account not linked to this user"}, status=400)
+                return Response({"error": "Google account not linked to this user"}, status=400)
         else:
-            return Response({"error": unlink_json.get('msg', 'Failed to unlink from Kakao')}, status=unlink_request.status_code)
-
+            return Response({"error": "Failed to unlink Google account"}, status=unlink_request.status_code)
 # 카카오 친구목록
 class KakaoFriendsListView(APIView):
     permission_classes = [IsAuthenticated]

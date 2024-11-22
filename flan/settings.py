@@ -49,7 +49,7 @@ INSTALLED_APPS = [
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
-    'allauth.socialaccount.providers.kakao',
+    'allauth.socialaccount.providers.google',
     
     #CORS 오류
     'corsheaders',
@@ -201,8 +201,8 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-KAKAO_REST_API_KEY = local_settings.KAKAO_REST_API_KEY
-KAKAO_CLIENT_SECRET_KEY = local_settings.KAKAO_CLIENT_SECRET_KEY
+GOOGLE_CLIENT_ID = local_settings.GOOGLE_CLIENT_ID
+GOOGLE_SECRET = local_settings.GOOGLE_SECRET
 
 #CORS
 
