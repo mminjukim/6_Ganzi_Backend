@@ -71,7 +71,7 @@ def kakao_callback(request):
         data={
             "grant_type": "authorization_code",
             "client_id": rest_api_key,
-            "redirect_uri": redirect_url,
+            "redirect_uri": KAKAO_CALLBACK_URI,
             "code": code,
             "client_secret": client_secret,
         }
@@ -104,7 +104,8 @@ def kakao_callback(request):
 
     return JsonResponse({
         "access_token": access_token,
-        "refresh_token": refresh_token
+        "refresh_token": refresh_token,
+        "redirect_url": redirect_url,
     })
 
 def merge_social_account(user, social_account):
