@@ -101,7 +101,7 @@ def kakao_callback(request):
 
     access_token, refresh_token = create_jwt_token(user)
 
-
+    response = redirect(redirect_url)
     response = JsonResponse({"message": "Login successful!"})
     response.set_cookie(
         key="accessToken", 
