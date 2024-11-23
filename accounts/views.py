@@ -64,14 +64,14 @@ def kakao_callback(request):
     rest_api_key = settings.KAKAO_REST_API_KEY
     client_secret = settings.KAKAO_CLIENT_SECRET_KEY
     code = request.GET.get('code')
-
+    redirect_url =  "http://localhost:5173/MyPage"
     # Access Token 요청
     token_req = requests.post(
         "https://kauth.kakao.com/oauth/token",
         data={
             "grant_type": "authorization_code",
             "client_id": rest_api_key,
-            "redirect_uri": KAKAO_CALLBACK_URI,
+            "redirect_uri": redirect_url,
             "code": code,
             "client_secret": client_secret,
         }
@@ -104,8 +104,7 @@ def kakao_callback(request):
 
     return JsonResponse({
         "access_token": access_token,
-        "refresh_token": refresh_token,
-        "redirect_url": "http://localhost:5173/MyPage"
+        "refresh_token": refresh_token
     })
 
 def merge_social_account(user, social_account):
