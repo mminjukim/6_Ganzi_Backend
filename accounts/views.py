@@ -64,7 +64,7 @@ def kakao_callback(request):
     rest_api_key = settings.KAKAO_REST_API_KEY
     client_secret = settings.KAKAO_CLIENT_SECRET_KEY
     code = request.GET.get('code')
-    redirect_url =  "https://flanganzi.netlify.app//MyPage"
+    redirect_url =  "https://flanganzi.netlify.app/Register"
     # Access Token 요청
     token_req = requests.post(
         "https://kauth.kakao.com/oauth/token",
