@@ -61,7 +61,7 @@ def kakao_callback(request):
     rest_api_key = getattr(settings, 'KAKAO_REST_API_KEY')
     client_secret = getattr(settings, 'KAKAO_CLIENT_SECRET_KEY')
     code = request.GET.get('code')
-    redirect_uri = "http://localhost:5173/kakaoLogin"
+    #redirect_uri = "http://localhost:5173/kakaoLogin"
 
     if not code:
         return JsonResponse({'err_msg': 'Authorization code is missing'}, status=400)
@@ -72,7 +72,7 @@ def kakao_callback(request):
         data={
             "grant_type": "authorization_code",
             "client_id": rest_api_key,
-            "redirect_uri": redirect_uri,  # 수정된 redirect_uri
+            "redirect_uri": KAKAO_CALLBACK_URI,
             "code": code,
             "client_secret": client_secret,
         }
