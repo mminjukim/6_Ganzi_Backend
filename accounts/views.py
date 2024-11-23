@@ -99,12 +99,12 @@ def kakao_callback(request):
         user.username = f"kakao_{kakao_uid}"
         user.save()
 
-    jwt_access_token, jwt_refresh_token = create_jwt_token(user)
+    access_token, refresh_token = create_jwt_token(user)
 
-    frontend_url = f"http://localhost:5173/MyPage"
-    redirect_url = f"{frontend_url}?access_token={jwt_access_token}&refresh_token={jwt_refresh_token}"
-    return redirect(redirect_url)
-
+    return JsonResponse({
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+    })
 
 def merge_social_account(user, social_account):
     try:
