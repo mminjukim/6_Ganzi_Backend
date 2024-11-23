@@ -101,9 +101,12 @@ def kakao_callback(request):
 
     access_token, refresh_token = create_jwt_token(user)
 
+    redirect_url = request.GET.get('redirect_url', '/')
+
     return JsonResponse({
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "redirect_url": redirect_url,
     })
 
 def merge_social_account(user, social_account):
