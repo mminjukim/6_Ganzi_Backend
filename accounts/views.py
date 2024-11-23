@@ -101,7 +101,6 @@ def kakao_callback(request):
 
     access_token, refresh_token = create_jwt_token(user)
 
-    response = redirect(redirect_url)
     response = JsonResponse({"message": "Login successful!"})
     response.set_cookie(
         key="accessToken", 
@@ -117,7 +116,7 @@ def kakao_callback(request):
         secure=True, 
         samesite="Lax"
     )
-    return response
+    return redirect(redirect_url)
 
 def merge_social_account(user, social_account):
     try:
