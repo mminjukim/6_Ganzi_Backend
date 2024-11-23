@@ -102,11 +102,22 @@ def kakao_callback(request):
     access_token, refresh_token = create_jwt_token(user)
 
 
-    return JsonResponse({
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "redirect_url": redirect_url,
-    })
+    response = JsonResponse({"message": "Login successful!"})
+    response.set_cookie(
+        key="accessToken", 
+        value=access_token, 
+        httponly=True, 
+        secure=True, 
+        samesite="Lax"
+    )
+    response.set_cookie(
+        key="refreshToken", 
+        value=refresh_token, 
+        httponly=True, 
+        secure=True, 
+        samesite="Lax"
+    )
+    return response
 
 def merge_social_account(user, social_account):
     try:
@@ -135,8 +146,7 @@ class TokenRefreshAPIView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_token = request.data.get('refresh_token')
-        
+        refresh_token = request.COOKIES.get('refreshToken')
         if not refresh_token:
             return Response({'message': 'No refresh token'}, status=status.HTTP_401_UNAUTHORIZED)
         
