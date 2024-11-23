@@ -25,7 +25,7 @@ class AvailableUserView(APIView):
 
             users = calc_personal_empty_time(start_time, end_time, is_repeated, request.user.user_id)
             if not users:
-                return Response({'message': '가능한 사용자가 존재하지 않습니다'}, status=status.HTTP_200_OK)
+                return Response({'message': '가능한 사용자가 존재하지 않습니다'}, status=status.HTTP_404_NOT_FOUND)
             available_users = ProfileSerializer(users, many=True, context={'request': request}).data
             return Response(available_users, status=status.HTTP_200_OK)
     
