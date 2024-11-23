@@ -99,6 +99,22 @@ def kakao_callback(request):
         user.username = f"kakao_{kakao_uid}"
         user.save()
 
+    try:
+        # 기존 소셜 계정을 검색
+        existing_account = SocialAccount.objects.get(user=user, provider='kakao')
+        # 기존 계정 정보 업데이트
+        existing_account.uid = kakao_uid
+        existing_account.extra_data = profile_json
+        existing_account.save()
+    except SocialAccount.DoesNotExist:
+        # 계정이 없을 경우 새 계정을 생성
+        SocialAccount.objects.create(
+            user=user,
+            provider='kakao',
+            uid=kakao_uid,
+            extra_data=profile_json,
+        )
+
     access_token, refresh_token = create_jwt_token(user)
 
     response = JsonResponse({"message": "Login successful!"})
@@ -118,6 +134,7 @@ def kakao_callback(request):
     )
     return redirect(redirect_url)
 
+"""
 def merge_social_account(user, social_account):
     try:
         # 기존 계정을 검색
@@ -134,6 +151,7 @@ def merge_social_account(user, social_account):
             uid=social_account.uid,
             extra_data=social_account.extra_data,
         )
+"""
 
 def create_jwt_token(user):
     refresh = RefreshToken.for_user(user)
