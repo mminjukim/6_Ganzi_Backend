@@ -106,14 +106,14 @@ def kakao_callback(request):
         key="accessToken", 
         value=access_token, 
         httponly=True, 
-        secure=True, 
+        secure=False, 
         samesite="Lax"
     )
     response.set_cookie(
         key="refreshToken", 
         value=refresh_token, 
         httponly=True, 
-        secure=True, 
+        secure=False, 
         samesite="Lax"
     )
     return redirect(redirect_url)
