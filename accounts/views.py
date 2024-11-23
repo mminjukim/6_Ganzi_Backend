@@ -18,7 +18,7 @@ from sch_requests.models import *
 from family.models import FamilyInfo
 from .serializers import UserSerializer, ProfileSerializer, SimpleUserSerializer
 
-BASE_URL = 'http://flan.klr.kr/'
+BASE_URL = 'https://flan.klr.kr/'
 KAKAO_CALLBACK_URI = BASE_URL + 'accounts/kakao/callback/'
 
 # JWT 토큰 생성 함수
